@@ -1,0 +1,138 @@
+-- สคริปต์หลักสำหรับใช้งาน (เวอร์ชันเพิ่มฟังก์ชันพับหน้าต่าง Minimize)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local TOGGLE_KEY = Enum.KeyCode.L 
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InfoPanel"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- ขนาดหน้าต่างปกติ
+local DEFAULT_SIZE = UDim2.new(0, 360, 0, 250)
+-- ขนาดตอนพับหน้าต่าง (ให้เหลือแค่แถวบนสุดสูง 30 พิกเซล)
+local MINIMIZED_SIZE = UDim2.new(0, 360, 0, 30)
+
+local frame = Instance.new("Frame")
+frame.Size = DEFAULT_SIZE
+frame.Position = UDim2.new(0.5, -180, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 2
+frame.Active = true
+frame.ClipsDescendants = true -- [สำคัญมาก]: เพื่อให้เวลาพับแล้ว ตัวหนังสือด้านล่างถูกซ่อนไปอัตโนมัติ
+frame.Parent = screenGui
+
+-- สลับสถานะพับหน้าต่าง
+local isMinimized = false
+
+-- สร้างปุ่มพับหน้าต่าง (Minimize Button) ไว้ที่มุมขวาบน
+local minButton = Instance.new("TextButton")
+minButton.Size = UDim2.new(0, 30, 0, 20)
+minButton.Position = UDim2.new(1, -35, 0, 5)
+minButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+minButton.TextColor3 = Color3.new(1, 1, 1)
+minButton.Text = "-"
+minButton.TextSize = 16
+minButton.Font = Enum.Font.SourceSansBold
+minButton.Parent = frame
+
+-- ระบบลากหน้าต่าง (คงโครงสร้างเดิม)
+local dragToggle, dragStart, startPos
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        -- ป้องกันไม่ให้ลากหน้าต่างถ้าผู้เล่นตั้งใจกดปุ่มพับหน้าต่าง
+        if UserInputService:GetFocusedTextBox() then return end
+        
+        dragToggle = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragToggle = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragToggle then
+            updateInput(input)
+        end
+    end
+end)
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, -20, 1, -20)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.Text = "แตะที่วัตถุเพื่อดูข้อมูล\n[กดปุ่ม L เพื่อซ่อน/แสดงหน้าต่าง]"
+label.TextColor3 = Color3.new(1, 1, 1)
+label.TextSize = 14 
+label.Font = Enum.Font.SourceSans
+label.BackgroundTransparency = 1
+label.TextWrapped = true
+label.TextXAlignment = Enum.TextXAlignment.Left
+label.TextYAlignment = Enum.TextYAlignment.Top
+label.Parent = frame
+
+-- ฟังก์ชันเมื่อกดปุ่มพับหน้าต่าง
+minButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        frame.Size = MINIMIZED_SIZE
+        minButton.Text = "+" -- เปลี่ยนปุ่มเป็นเครื่องหมายบวกเพื่อกางออก
+        label.Visible = false -- ซ่อนข้อความเพื่อความสะอาดตา
+    else
+        frame.Size = DEFAULT_SIZE
+        minButton.Text = "-" -- เปลี่ยนกลับเป็นเครื่องหมายลบเพื่อพับ
+        label.Visible = true
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+    
+    if input.KeyCode == TOGGLE_KEY then
+        frame.Visible = not frame.Visible
+        return
+    end
+    
+    -- ถ้าพับหน้าต่างอยู่ จะไม่ทำการดึงข้อมูลวัตถุใหม่เพื่อประหยัดการทำงาน
+    if isMinimized then return end
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local mouse = localPlayer:GetMouse()
+        if mouse.Target then
+            local obj = mouse.Target
+            
+            local parentName = (obj.Parent and obj.Parent.Name) or "Unknown"
+            local objPos = "N/A"
+            local objSize = "N/A"
+            local objMaterial = "N/A"
+            local objCanCollide = "N/A"
+            
+            if obj:IsA("BasePart") then
+                objPos = string.format("%.2f, %.2f, %.2f", obj.Position.X, obj.Position.Y, obj.Position.Z)
+                objSize = string.format("%.2f, %.2f, %.2f", obj.Size.X, obj.Size.Y, obj.Size.Z)
+                objMaterial = tostring(obj.Material.Name)
+                objCanCollide = tostring(obj.CanCollide)
+            end
+            
+            label.Text = "ชื่อ: " .. tostring(obj.Name) .. 
+                         "\nประเภท: " .. tostring(obj.ClassName) .. 
+                         "\nParent: " .. parentName .. 
+                         "\nพิกัด: " .. objPos ..
+                         "\nขนาด: " .. objSize ..
+                         "\nวัสดุ: " .. objMaterial ..
+                         "\nเดินทะลุได้: " .. objCanCollide
+        end
+    end
+end)
