@@ -1,0 +1,81 @@
+-- เคลียร์หน้าต่างเก่าป้องกันการซ้อนทับ
+if game:GetService("CoreGui"):FindFirstChild("MobileScannerUI") then
+    game:GetService("CoreGui").MobileScannerUI:Destroy()
+end
+
+-- สร้างหน้าต่าง UI แสดงผลบนมือถือ
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MobileScannerUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999999
+ScreenGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 200)
+MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+Title.Text = "  MOBILE STRUCTURE DISCOVERER"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 11
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local LogBox = Instance.new("ScrollingFrame")
+LogBox.Size = UDim2.new(0.94, 0, 0.8, 0)
+LogBox.Position = UDim2.new(0.03, 0, 0.17, 0)
+LogBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+LogBox.BorderSizePixel = 0
+LogBox.CanvasSize = UDim2.new(0, 0, 15, 0)
+LogBox.Parent = MainFrame
+
+local LogLayout = Instance.new("UIListLayout")
+LogLayout.Parent = LogBox
+
+local function addLog(text, color)
+    local LogText = Instance.new("TextBox")
+    LogText.Size = UDim2.new(1, 0, 0, 22)
+    LogText.BackgroundTransparency = 1
+    LogText.Text = text
+    LogText.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+    LogText.TextSize = 10
+    LogText.Font = Enum.Font.Code
+    LogText.TextXAlignment = Enum.TextXAlignment.Left
+    LogText.ClearTextOnFocus = false
+    LogText.TextEditable = false
+    LogText.Parent = LogBox
+end
+
+addLog("[System]: กำลังค้นหาตำแหน่ง Module และโครงสร้างเกม...", Color3.fromRGB(0, 255, 150))
+
+-- ทำการสแกนหาจุดเชื่อมโยงของระบบที่ใช้บนมือถือได้
+pcall(function()
+    local replicated = game:GetService("ReplicatedStorage")
+    if replicated:FindFirstChild("Events") then
+        addLog("✅ พบโฟลเดอร์หลัก: game.ReplicatedStorage.Events", Color3.fromRGB(255, 200, 50))
+        for _, child in pairs(replicated.Events:GetChildren()) do
+            addLog("   -> " .. child.Name .. " (" .. child.ClassName .. ")", Color3.fromRGB(230, 230, 230))
+        end
+    end
+end)
+
+pcall(function()
+    -- ตรวจสอบโครงสร้างระบบข้อมูลผู้เล่นฝั่ง Client
+    local player = game:GetService("Players").LocalPlayer
+    if player:FindFirstChild("PlayerScripts") then
+        addLog("🔍 ตรวจสอบระบบสคริปต์ผู้เล่น Local...", Color3.fromRGB(100, 200, 255))
+        for _, v in pairs(player.PlayerScripts:GetDescendants()) do
+            if v:IsA("ModuleScript") and (string.find(v.Name, "Network") or string.find(v.Name, "Controller")) then
+                addLog("⭐ พบตัวควบคุม: " .. v.Name, Color3.fromRGB(255, 100, 255))
+            end
+        end
+    end
+end)
