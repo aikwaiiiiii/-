@@ -1,0 +1,29 @@
+-- สร้าง ScreenGui
+local screenGui = Instance.new("ScreenGui", game.Players.LocalPlayer:WaitForChild("PlayerGui"))
+screenGui.Name = "InfoPanel"
+
+-- สร้างกรอบหลัก
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 350, 0, 150)
+frame.Position = UDim2.new(0.5, -175, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Active = true
+frame.Draggable = true -- สามารถลากหน้าต่างไปมาได้ด้วยนิ้ว
+
+-- สร้าง TextLabel สำหรับแสดงข้อมูล
+local label = Instance.new("TextLabel", frame)
+label.Size = UDim2.new(1, 0, 1, 0)
+label.Text = "แตะที่วัตถุเพื่อดูข้อมูล"
+label.TextColor3 = Color3.new(1, 1, 1)
+label.BackgroundTransparency = 1
+label.TextWrapped = true
+
+-- ฟังชั่นตรวจจับการกด
+game.Players.LocalPlayer:GetMouse().Button1Down:Connect(function()
+    local mouse = game.Players.LocalPlayer:GetMouse()
+    if mouse.Target then
+        local obj = mouse.Target
+        -- แสดงข้อมูลลงบนหน้าจอ
+        label.Text = "ชื่อ: " .. obj.Name .. "\nประเภท: " .. obj.ClassName .. "\nParent: " .. obj.Parent.Name .. "\nพิกัด: " .. tostring(obj.Position)
+    end
+end)
