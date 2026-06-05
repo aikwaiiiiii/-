@@ -343,6 +343,315 @@ destroyBtn.MouseButton1Click:Connect(function() if currentTarget then currentTar
 -- BUFFER
 -- 1
 -- 2
+
+local titleLabel = Instance.new("TextLabel", topBar)
+titleLabel.Size, titleLabel.Position, titleLabel.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner v5.2 (Auto-Farm Injector)"
+titleLabel.TextColor3, titleLabel.TextSize, titleLabel.Font = Color3.new(1,1,1), 13, Enum.Font.GothamBold
+titleLabel.BackgroundTransparency, titleLabel.TextXAlignment = 1, Enum.TextXAlignment.Left
+
+local closeBtn = Instance.new("TextButton", topBar)
+closeBtn.Size, closeBtn.Position, closeBtn.BackgroundColor3 = UDim2.new(0, 30, 0, 25), UDim2.new(1, -35, 0, 5), Color3.fromRGB(200, 50, 50)
+closeBtn.TextColor3, closeBtn.Text, closeBtn.Font = Color3.new(1,1,1), "X", Enum.Font.GothamBold
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+local dragToggle, dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle, dragStart, startPos = true, input.Position, frame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragToggle = false end end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragToggle then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local tabBar = Instance.new("Frame", frame)
+tabBar.Size, tabBar.Position, tabBar.BackgroundColor3, tabBar.BorderSizePixel = UDim2.new(1, 0, 0, 35), UDim2.new(0, 0, 0, 35), Color3.fromRGB(30, 30, 35), 0
+
+local function createTabBtn(text, posScale)
+    local btn = Instance.new("TextButton", tabBar)
+    btn.Size, btn.Position, btn.BackgroundTransparency = UDim2.new(0.333, 0, 1, 0), UDim2.new(posScale, 0, 0, 0), 1
+    btn.TextColor3, btn.Font, btn.TextSize, btn.Text = Color3.fromRGB(150, 150, 150), Enum.Font.GothamBold, 12, text
+    return btn
+end
+local tab1Btn, tab2Btn, tab3Btn = createTabBtn("🔍 SCANNER", 0), createTabBtn("✏️ EDITOR", 0.333), createTabBtn("⚙️ CODER", 0.666)
+
+local pageContainer = Instance.new("Frame", frame)
+pageContainer.Size, pageContainer.Position, pageContainer.BackgroundTransparency = UDim2.new(1, 0, 1, -70), UDim2.new(0, 0, 0, 70), 1
+
+local page1, page2, page3 = Instance.new("Frame", pageContainer), Instance.new("Frame", pageContainer), Instance.new("Frame", pageContainer)
+page1.Size = UDim2.new(1,0,1,0); page1.BackgroundTransparency = 1
+page2.Size = UDim2.new(1,0,1,0); page2.BackgroundTransparency = 1; page2.Visible = false
+page3.Size = UDim2.new(1,0,1,0); page3.BackgroundTransparency = 1; page3.Visible = false
+
+local function switchTab(tNum)
+    page1.Visible, page2.Visible, page3.Visible = (tNum==1), (tNum==2), (tNum==3)
+    tab1Btn.TextColor3 = (tNum==1) and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(150, 150, 150)
+    tab2Btn.TextColor3 = (tNum==2) and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(150, 150, 150)
+    tab3Btn.TextColor3 = (tNum==3) and Color3.fromRGB(255, 150, 0) or Color3.fromRGB(150, 150, 150)
+end
+tab1Btn.MouseButton1Click:Connect(function() switchTab(1) end)
+tab2Btn.MouseButton1Click:Connect(function() switchTab(2) end)
+tab3Btn.MouseButton1Click:Connect(function() switchTab(3) end)
+switchTab(1)
+
+-- 3. SCANNER TAB
+local infoScroll = Instance.new("ScrollingFrame", page1)
+infoScroll.Size, infoScroll.Position, infoScroll.BackgroundTransparency = UDim2.new(1, -20, 1, -85), UDim2.new(0, 10, 0, 5), 1
+infoScroll.ScrollBarThickness, infoScroll.AutomaticCanvasSize = 4, Enum.AutomaticSize.Y
+
+local infoLabel = Instance.new("TextLabel", infoScroll)
+infoLabel.Size, infoLabel.AutomaticSize, infoLabel.BackgroundTransparency = UDim2.new(1, -10, 0, 0), Enum.AutomaticSize.Y, 1
+infoLabel.Text = "ระบบพร้อม! แตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก..."
+infoLabel.TextColor3, infoLabel.TextSize, infoLabel.Font = Color3.fromRGB(220, 220, 220), 12, Enum.Font.GothamMedium
+infoLabel.TextWrapped, infoLabel.TextXAlignment, infoLabel.RichText = true, Enum.TextXAlignment.Left, true
+
+local function createActionBtn(p, txt, pos, col)
+    local btn = Instance.new("TextButton", p)
+    btn.Size, btn.Position, btn.BackgroundColor3 = UDim2.new(0.32, 0, 0, 30), UDim2.new(pos, 0, 1, -75), col
+    btn.TextColor3, btn.Font, btn.TextSize, btn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, 11, txt
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local tpBtn, bringBtn, modeBtn = createActionBtn(page1,"Teleport",0,Color3.fromRGB(40,160,180)), createActionBtn(page1,"Bring",0.34,Color3.fromRGB(180,140,40)), createActionBtn(page1,"Mode: Part",0.68,Color3.fromRGB(60,60,180))
+local copyPathBtn = createActionBtn(page1,"Copy Path",0,Color3.fromRGB(60,150,60)) copyPathBtn.Position = UDim2.new(0,0,1,-40)
+local copyDataBtn = createActionBtn(page1,"Copy Data",0.34,Color3.fromRGB(150,80,150)) copyDataBtn.Position = UDim2.new(0.34,0,1,-40)
+local destroyBtn = createActionBtn(page1,"Destroy",0.68,Color3.fromRGB(180,40,40)) destroyBtn.Position = UDim2.new(0.68,0,1,-40)
+
+-- 4. EDITOR TAB
+local editScroll = Instance.new("ScrollingFrame", page2)
+editScroll.Size, editScroll.Position, editScroll.BackgroundTransparency = UDim2.new(1, -20, 1, -50), UDim2.new(0, 10, 0, 5), 1
+editScroll.ScrollBarThickness, editScroll.AutomaticCanvasSize = 4, Enum.AutomaticSize.Y
+
+local function createInputBox(txt, yPos)
+    local lbl = Instance.new("TextLabel", editScroll)
+    lbl.Size, lbl.Position, lbl.Text, lbl.TextColor3 = UDim2.new(0.4, 0, 0, 30), UDim2.new(0, 0, 0, yPos), txt, Color3.new(1,1,1)
+    lbl.BackgroundTransparency, lbl.Font, lbl.TextXAlignment = 1, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+    local box = Instance.new("TextBox", editScroll)
+    box.Size, box.Position, box.BackgroundColor3 = UDim2.new(0.55, 0, 0, 30), UDim2.new(0.45, 0, 0, yPos), Color3.fromRGB(40, 40, 45)
+    box.TextColor3, box.Font, box.Text, box.TextWrapped, box.ClearTextOnFocus = Color3.new(1,1,1), Enum.Font.Gotham, "", true, false
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    return box
+end
+
+local function createToggleBtn(txt, yPos)
+    local lbl = Instance.new("TextLabel", editScroll)
+    lbl.Size, lbl.Position, lbl.Text, lbl.TextColor3 = UDim2.new(0.4, 0, 0, 30), UDim2.new(0, 0, 0, yPos), txt, Color3.new(1,1,1)
+    lbl.BackgroundTransparency, lbl.Font, lbl.TextXAlignment = 1, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+    local btn = Instance.new("TextButton", editScroll)
+    btn.Size, btn.Position, btn.BackgroundColor3 = UDim2.new(0.55, 0, 0, 30), UDim2.new(0.45, 0, 0, yPos), Color3.fromRGB(60, 150, 60)
+    btn.TextColor3, btn.Font, btn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "TRUE"
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local sizeInput, transInput = createInputBox("Scale (X,Y,Z):", 0), createInputBox("Transparency:", 40)
+local canCollideBtn, anchoredBtn = createToggleBtn("CanCollide:", 80), createToggleBtn("Anchored:", 120)
+
+local function toggleB(b)
+    b.Text = b.Text == "TRUE" and "FALSE" or "TRUE"
+    b.BackgroundColor3 = b.Text == "TRUE" and Color3.fromRGB(60,150,60) or Color3.fromRGB(180,60,60)
+end
+canCollideBtn.MouseButton1Click:Connect(function() toggleB(canCollideBtn) end)
+anchoredBtn.MouseButton1Click:Connect(function() toggleB(anchoredBtn) end)
+
+local applyEditBtn = Instance.new("TextButton", page2)
+applyEditBtn.Size, applyEditBtn.Position, applyEditBtn.BackgroundColor3 = UDim2.new(1,-20,0,35), UDim2.new(0,10,1,-45), Color3.fromRGB(0,200,100)
+applyEditBtn.TextColor3, applyEditBtn.Font, applyEditBtn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "✅ APPLY CHANGES"
+Instance.new("UICorner", applyEditBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateEd(obj)
+    if obj and obj:IsA("BasePart") then
+        sizeInput.Text = string.format("%.1f, %.1f, %.1f", obj.Size.X, obj.Size.Y, obj.Size.Z)
+        transInput.Text = tostring(obj.Transparency)
+        canCollideBtn.Text = obj.CanCollide and "TRUE" or "FALSE"
+        canCollideBtn.BackgroundColor3 = obj.CanCollide and Color3.fromRGB(60,150,60) or Color3.fromRGB(180,60,60)
+        anchoredBtn.Text = obj.Anchored and "TRUE" or "FALSE"
+        anchoredBtn.BackgroundColor3 = obj.Anchored and Color3.fromRGB(60,150,60) or Color3.fromRGB(180,60,60)
+    end
+end
+
+applyEditBtn.MouseButton1Click:Connect(function()
+    if currentTarget and currentTarget:IsA("BasePart") then
+        pcall(function()
+            local s = string.split(sizeInput.Text, ",")
+            if #s == 3 then currentTarget.Size = Vector3.new(tonumber(s[1]), tonumber(s[2]), tonumber(s[3])) end
+            currentTarget.Transparency = tonumber(transInput.Text) or currentTarget.Transparency
+            currentTarget.CanCollide = (canCollideBtn.Text == "TRUE")
+            currentTarget.Anchored = (anchoredBtn.Text == "TRUE")
+            applyEditBtn.Text = "✅ SUCCESS!" task.wait(1) applyEditBtn.Text = "✅ APPLY CHANGES"
+        end)
+    end
+end)
+
+-- ==========================================
+-- 5. แท็บที่ 3: CODER (🔥 ระบบ INJECTOR 100%)
+-- ==========================================
+local codeBox = Instance.new("TextBox", page3)
+codeBox.Size, codeBox.Position, codeBox.BackgroundColor3 = UDim2.new(1,-20,1,-130), UDim2.new(0,10,0,5), Color3.fromRGB(15,15,18)
+codeBox.TextColor3, codeBox.Font, codeBox.TextSize = Color3.fromRGB(150,255,150), Enum.Font.Code, 11
+codeBox.TextXAlignment, codeBox.TextYAlignment, codeBox.TextWrapped, codeBox.ClearTextOnFocus, codeBox.MultiLine = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, false, true
+codeBox.Text = "-- จิ้มวัตถุแล้วกด GENERATE เพื่อดูโค้ด\n-- หรือกด ▶️ RUN เพื่อเริ่มฟาร์มทันที!"
+Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 6)
+
+-- แถวปุ่มที่ 1: จัดการโค้ด
+local genCodeBtn = Instance.new("TextButton", page3)
+genCodeBtn.Size, genCodeBtn.Position, genCodeBtn.BackgroundColor3 = UDim2.new(0.65,0,0,30), UDim2.new(0,10,1,-115), Color3.fromRGB(255,150,0)
+genCodeBtn.TextColor3, genCodeBtn.Font, genCodeBtn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "⚙️ GENERATE SCRIPT"
+Instance.new("UICorner", genCodeBtn).CornerRadius = UDim.new(0, 6)
+
+local copyCodeBtn = Instance.new("TextButton", page3)
+copyCodeBtn.Size, copyCodeBtn.Position, copyCodeBtn.BackgroundColor3 = UDim2.new(0.3,0,0,30), UDim2.new(0.7,-10,1,-115), Color3.fromRGB(60,150,60)
+copyCodeBtn.TextColor3, copyCodeBtn.Font, copyCodeBtn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "📋 COPY"
+Instance.new("UICorner", copyCodeBtn).CornerRadius = UDim.new(0, 6)
+
+-- แถวปุ่มที่ 2: ระบบ Inject (ฟาร์มสด)
+local runFarmBtn = Instance.new("TextButton", page3)
+runFarmBtn.Size, runFarmBtn.Position, runFarmBtn.BackgroundColor3 = UDim2.new(0.65,0,0,35), UDim2.new(0,10,1,-75), Color3.fromRGB(0,200,100)
+runFarmBtn.TextColor3, runFarmBtn.Font, runFarmBtn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "▶️ RUN AUTO-FARM (ทำงานสด)"
+Instance.new("UICorner", runFarmBtn).CornerRadius = UDim.new(0, 6)
+
+local stopFarmBtn = Instance.new("TextButton", page3)
+stopFarmBtn.Size, stopFarmBtn.Position, stopFarmBtn.BackgroundColor3 = UDim2.new(0.3,0,0,35), UDim2.new(0.7,-10,1,-75), Color3.fromRGB(200,50,50)
+stopFarmBtn.TextColor3, stopFarmBtn.Font, stopFarmBtn.Text = Color3.new(1,1,1), Enum.Font.GothamBold, "🛑 STOP"
+Instance.new("UICorner", stopFarmBtn).CornerRadius = UDim.new(0, 6)
+
+-- ฟังก์ชันโชว์โค้ดเฉยๆ (ของเดิม)
+genCodeBtn.MouseButton1Click:Connect(function()
+    if not currentTarget then return end
+    local code = ""
+    local hasInteract = currentTarget:FindFirstChildOfClass("TouchTransmitter") or currentTarget:FindFirstChildOfClass("ProximityPrompt")
+    if hasInteract then
+        code = "-- [ AUTO-FARM SCRIPT ] --\nlocal targetPath = " .. currentPathStr .. "\nlocal p = game.Players.LocalPlayer\n"
+        if currentTarget:FindFirstChildOfClass("TouchTransmitter") then
+            code = code .. "while task.wait(0.5) do\n pcall(function()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 0)\n  task.wait()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 1)\n end)\nend"
+        else
+            code = code .. "while task.wait(0.5) do\n pcall(function() fireproximityprompt(targetPath:FindFirstChildOfClass('ProximityPrompt')) end)\nend"
+        end
+    else
+        code = "-- [ FILE DUMPER SCRIPT ] --\nlocal obj = " .. currentPathStr .. "\nlocal c = 0\nfor _, v in pairs(obj:GetDescendants()) do\n c=c+1\n print('['..v.ClassName..'] '..v.Name)\nend\nprint('Total: '..c)"
+    end
+    codeBox.Text = code
+end)
+
+copyCodeBtn.MouseButton1Click:Connect(function()
+    if setclipboard then setclipboard(codeBox.Text) copyCodeBtn.Text = "Copied!" task.wait(1) copyCodeBtn.Text = "📋 COPY" end
+end)
+
+-- [🔥 NEW] ฟังก์ชันรันออโต้ฟาร์มสดในตัว (Injector)
+runFarmBtn.MouseButton1Click:Connect(function()
+    if not currentTarget then codeBox.Text = "⚠️ กรุณาสแกนเป้าหมายก่อนกดรัน!" return end
+    
+    local hasInteract = currentTarget:FindFirstChildOfClass("TouchTransmitter") or currentTarget:FindFirstChildOfClass("ProximityPrompt")
+    if not hasInteract then
+        codeBox.Text = "⚠️ วัตถุนี้ไม่ใช่ปุ่ม (ไม่มี Touch หรือ Proximity) ไม่สามารถรัน Auto-Farm ได้ครับ"
+        return
+    end
+
+    _G.ScannerAutoFarm = true
+    runFarmBtn.Text = "🔄 RUNNING... (กำลังฟาร์ม)"
+    runFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 50)
+    
+    -- ใช้ task.spawn แยกสมองทำงาน ไม่ให้ UI ค้าง
+    task.spawn(function()
+        local tObj = currentTarget
+        local p = game.Players.LocalPlayer
+        
+        while _G.ScannerAutoFarm do
+            pcall(function()
+                if tObj:FindFirstChildOfClass("TouchTransmitter") then
+                    firetouchinterest(p.Character.HumanoidRootPart, tObj, 0)
+                    task.wait()
+                    firetouchinterest(p.Character.HumanoidRootPart, tObj, 1)
+                elseif tObj:FindFirstChildOfClass("ProximityPrompt") then
+                    fireproximityprompt(tObj:FindFirstChildOfClass("ProximityPrompt"))
+                end
+            end)
+            task.wait(0.5)
+        end
+    end)
+end)
+
+-- [🔥 NEW] ฟังก์ชันเบรกเกอร์ (Kill Switch)
+stopFarmBtn.MouseButton1Click:Connect(function()
+    _G.ScannerAutoFarm = false
+    runFarmBtn.Text = "▶️ RUN AUTO-FARM (ทำงานสด)"
+    runFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    codeBox.Text = "🛑 ปิดระบบ Auto-Farm แล้ว!"
+end)
+
+-- 6. ENGINE (DEEP SCAN)
+local function getDetailedPath(obj)
+    local s, r = pcall(function()
+        local pParts, curr = {}, obj
+        while curr and curr ~= game do table.insert(pParts, 1, curr.Name) curr = curr.Parent end
+        return "game." .. table.concat(pParts, ".")
+    end)
+    return s and r or "Error"
+end
+
+local function getFirstModel(obj)
+    local c = obj.Parent
+    while c and c ~= workspace and c ~= game do
+        if c:IsA("Model") then return c end c = c.Parent
+    end
+    return obj
+end
+
+local function analyzeHierarchy(obj, pathStr)
+    local txt = "<font color='#00FFAA'><b>[ ข้อมูลโครงสร้างหลัก ]</b></font>\nชื่อ: " .. obj.Name .. "\nประเภท: " .. obj.ClassName .. "\n\n<font color='#AADDFF'>" .. pathStr .. "</font>\n\n"
+    local cCount, tHidden = {}, 0
+    pcall(function()
+        for _, c in ipairs(obj:GetDescendants()) do
+            tHidden = tHidden + 1; cCount[c.ClassName] = (cCount[c.ClassName] or 0) + 1
+            if tHidden > 1500 then cCount["⚠️ Limit"] = 1 break end
+        end
+    end)
+    if tHidden > 0 then
+        txt = txt .. "<font color='#FF55FF'><b>[ ไฟล์แฝง ]</b></font>\n"
+        for k, v in pairs(cCount) do txt = txt .. "• " .. k .. ": <font color='#FFAA00'>" .. v .. "</font>\n" end
+        txt = txt .. "\n"
+    end
+    if obj:IsA("BasePart") then
+        txt = txt .. "<font color='#00FFAA'><b>[ กายภาพ ]</b></font>\nพิกัด: " .. string.format("%.1f, %.1f, %.1f", obj.Position.X, obj.Position.Y, obj.Position.Z) .. "\n"
+    end
+    return txt
+end
+
+-- 7. INPUT
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not frame.Visible then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if mouse.Target then
+            local obj = mouse.Target
+            if SCAN_MODE == "Model" then obj = getFirstModel(obj) end
+            currentTarget = obj; currentPathStr = getDetailedPath(obj); highlight.Adornee = obj
+            local txt = analyzeHierarchy(obj, currentPathStr)
+            currentDataStr, infoLabel.Text = txt:gsub("<[^>]+>", ""), txt
+            updateEd(obj)
+        end
+    end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible highlight.Adornee = frame.Visible and currentTarget or nil end)
+closeBtn.MouseButton1Click:Connect(function() frame.Visible = false highlight.Adornee = nil end)
+modeBtn.MouseButton1Click:Connect(function()
+    SCAN_MODE = SCAN_MODE == "Part" and "Model" or "Part"
+    modeBtn.Text, modeBtn.BackgroundColor3 = "Mode: "..SCAN_MODE, SCAN_MODE == "Model" and Color3.fromRGB(150,60,180) or Color3.fromRGB(60,60,180)
+end)
+copyPathBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(currentPathStr) end end)
+copyDataBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(currentDataStr) end end)
+tpBtn.MouseButton1Click:Connect(function() if currentTarget and localPlayer.Character then localPlayer.Character:PivotTo(currentTarget.CFrame+Vector3.new(0,3,0)) end end)
+bringBtn.MouseButton1Click:Connect(function() if currentTarget and currentTarget:IsA("BasePart") then currentTarget.CFrame = localPlayer.Character.HumanoidRootPart.CFrame end end)
+destroyBtn.MouseButton1Click:Connect(function() if currentTarget then currentTarget:Destroy() highlight.Adornee = nil end end)
+
+-- BUFFER
+-- 1
+-- 2
     return btn
 end
 local tab1Btn, tab2Btn, tab3Btn = createTabBtn("🔍 SCANNER", 0), createTabBtn("✏️ EDITOR", 0.333), createTabBtn("⚙️ CODER", 0.666)
