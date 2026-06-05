@@ -1,0 +1,415 @@
+-- [[ ADVANCED OBJECT SCANNER V5.1 (MASTERPIECE - BUG FIXED) ]] --
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+local SCAN_MODE = "Part"
+local currentTarget = nil
+local currentPathStr = ""
+local currentDataStr = ""
+
+-- ==========================================
+-- 1. ระบบจัดการ UI (gethui bypass ที่เสถียรที่สุด)
+-- ==========================================
+local guiParent
+local success, hui = pcall(function() return gethui() end)
+if success and hui then
+    guiParent = hui
+else
+    local success2, cg = pcall(function() return game:GetService("CoreGui") end)
+    if success2 and cg then
+        guiParent = cg
+    else
+        guiParent = localPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+if guiParent:FindFirstChild("MobileScannerPanel") then
+    guiParent.MobileScannerPanel:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MobileScannerPanel"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = guiParent
+
+local highlight = Instance.new("Highlight")
+highlight.FillColor = Color3.fromRGB(0, 255, 150) 
+highlight.FillTransparency = 0.5
+highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+highlight.Parent = guiParent
+
+-- ปุ่มวงกลมลอยสำหรับมือถือ
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 15, 0.5, -20)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+toggleBtn.Text = "🔍"
+toggleBtn.TextSize = 20
+toggleBtn.Parent = screenGui
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+
+-- ==========================================
+-- 2. โครงสร้างหน้าต่างหลัก & ระบบแท็บ
+-- ==========================================
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 420, 0, 380)
+frame.Position = UDim2.new(0.5, -210, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Active = true 
+frame.Visible = true -- [แก้ไข] เปิดหน้าต่างโชว์ทันทีที่รันสคริปต์
+frame.Parent = screenGui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+-- แถบ TopBar
+local topBar = Instance.new("Frame", frame)
+topBar.Size = UDim2.new(1, 0, 0, 35)
+topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+topBar.BorderSizePixel = 0
+topBar.Active = true
+local titleLabel = Instance.new("TextLabel", topBar)
+titleLabel.Size = UDim2.new(1, -100, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.Text = "⚡ Scanner v5.1 (Masterpiece)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 13
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local closeButton = Instance.new("TextButton", topBar)
+closeButton.Size = UDim2.new(0, 30, 0, 25)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Text = "X"
+closeButton.TextSize = 12
+closeButton.Font = Enum.Font.GothamBold
+Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 6)
+
+-- ระบบลากหน้าต่าง
+local dragToggle, dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle = true dragStart = input.Position startPos = frame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragToggle = false end end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragToggle then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- แถบ Tab Menu
+local tabBar = Instance.new("Frame", frame)
+tabBar.Size = UDim2.new(1, 0, 0, 35)
+tabBar.Position = UDim2.new(0, 0, 0, 35)
+tabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+tabBar.BorderSizePixel = 0
+
+local function createTabBtn(text, posScale)
+    local btn = Instance.new("TextButton", tabBar)
+    btn.Size = UDim2.new(0.333, 0, 1, 0)
+    btn.Position = UDim2.new(posScale, 0, 0, 0)
+    btn.BackgroundTransparency = 1
+    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Text = text
+    return btn
+end
+local tab1Btn = createTabBtn("🔍 SCANNER", 0)
+local tab2Btn = createTabBtn("✏️ EDITOR", 0.333)
+local tab3Btn = createTabBtn("⚙️ CODER", 0.666)
+
+local pageContainer = Instance.new("Frame", frame)
+pageContainer.Size = UDim2.new(1, 0, 1, -70)
+pageContainer.Position = UDim2.new(0, 0, 0, 70)
+pageContainer.BackgroundTransparency = 1
+
+local page1 = Instance.new("Frame", pageContainer) page1.Size = UDim2.new(1, 0, 1, 0) page1.BackgroundTransparency = 1
+local page2 = Instance.new("Frame", pageContainer) page2.Size = UDim2.new(1, 0, 1, 0) page2.BackgroundTransparency = 1 page2.Visible = false
+local page3 = Instance.new("Frame", pageContainer) page3.Size = UDim2.new(1, 0, 1, 0) page3.BackgroundTransparency = 1 page3.Visible = false
+
+local function switchTab(tabNum)
+    page1.Visible = (tabNum == 1)
+    page2.Visible = (tabNum == 2)
+    page3.Visible = (tabNum == 3)
+    tab1Btn.TextColor3 = (tabNum == 1) and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(150, 150, 150)
+    tab2Btn.TextColor3 = (tabNum == 2) and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(150, 150, 150)
+    tab3Btn.TextColor3 = (tabNum == 3) and Color3.fromRGB(255, 150, 0) or Color3.fromRGB(150, 150, 150)
+end
+tab1Btn.MouseButton1Click:Connect(function() switchTab(1) end)
+tab2Btn.MouseButton1Click:Connect(function() switchTab(2) end)
+tab3Btn.MouseButton1Click:Connect(function() switchTab(3) end)
+switchTab(1)
+
+-- ==========================================
+-- 3. แท็บที่ 1: SCANNER
+-- ==========================================
+local infoScroll = Instance.new("ScrollingFrame", page1)
+infoScroll.Size = UDim2.new(1, -20, 1, -85)
+infoScroll.Position = UDim2.new(0, 10, 0, 5)
+infoScroll.BackgroundTransparency = 1
+infoScroll.ScrollBarThickness = 4
+infoScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local infoLabel = Instance.new("TextLabel", infoScroll)
+infoLabel.Size = UDim2.new(1, -10, 0, 0)
+infoLabel.AutomaticSize = Enum.AutomaticSize.Y
+infoLabel.Text = "แตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบ..."
+infoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+infoLabel.TextSize = 13
+infoLabel.Font = Enum.Font.GothamMedium
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextWrapped = true
+infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+infoLabel.RichText = true
+
+local function createActionBtn(parent, text, posScale, color)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.32, 0, 0, 30)
+    btn.Position = UDim2.new(posScale, 0, 1, -75)
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Text = text
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local tpBtn = createActionBtn(page1, "Teleport", 0, Color3.fromRGB(40, 160, 180))
+local bringBtn = createActionBtn(page1, "Bring", 0.34, Color3.fromRGB(180, 140, 40))
+local modeBtn = createActionBtn(page1, "Mode: Part", 0.68, Color3.fromRGB(60, 60, 180))
+
+local copyPathBtn = createActionBtn(page1, "Copy Path", 0, Color3.fromRGB(60, 150, 60)) copyPathBtn.Position = UDim2.new(0, 0, 1, -40)
+local copyDataBtn = createActionBtn(page1, "Copy Data", 0.34, Color3.fromRGB(150, 80, 150)) copyDataBtn.Position = UDim2.new(0.34, 0, 1, -40)
+local destroyBtn = createActionBtn(page1, "Destroy", 0.68, Color3.fromRGB(180, 40, 40)) destroyBtn.Position = UDim2.new(0.68, 0, 1, -40)
+
+-- ==========================================
+-- 4. แท็บที่ 2: EDITOR (แก้ไขบั๊กปุ่ม)
+-- ==========================================
+local editScroll = Instance.new("ScrollingFrame", page2)
+editScroll.Size = UDim2.new(1, -20, 1, -50)
+editScroll.Position = UDim2.new(0, 10, 0, 5)
+editScroll.BackgroundTransparency = 1
+editScroll.ScrollBarThickness = 4
+editScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+-- กล่องพิมพ์ข้อความ (สำหรับตัวเลข)
+local function createInputBox(text, yPos)
+    local lbl = Instance.new("TextLabel", editScroll)
+    lbl.Size = UDim2.new(0.4, 0, 0, 30) lbl.Position = UDim2.new(0, 0, 0, yPos)
+    lbl.Text = text lbl.TextColor3 = Color3.new(1,1,1) lbl.BackgroundTransparency = 1 lbl.Font = Enum.Font.GothamBold lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local box = Instance.new("TextBox", editScroll)
+    box.Size = UDim2.new(0.55, 0, 0, 30) box.Position = UDim2.new(0.45, 0, 0, yPos)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 45) box.TextColor3 = Color3.new(1,1,1)
+    box.Font = Enum.Font.Gotham box.Text = "" box.TextWrapped = true box.ClearTextOnFocus = false
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    return box
+end
+
+-- [🔥 แก้ไขบั๊ก] เปลี่ยนจาก TextBox เป็น TextButton สำหรับปุ่ม True/False
+local function createToggleButton(text, yPos)
+    local lbl = Instance.new("TextLabel", editScroll)
+    lbl.Size = UDim2.new(0.4, 0, 0, 30) lbl.Position = UDim2.new(0, 0, 0, yPos)
+    lbl.Text = text lbl.TextColor3 = Color3.new(1,1,1) lbl.BackgroundTransparency = 1 lbl.Font = Enum.Font.GothamBold lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local btn = Instance.new("TextButton", editScroll)
+    btn.Size = UDim2.new(0.55, 0, 0, 30) btn.Position = UDim2.new(0.45, 0, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 150, 60) btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold btn.Text = "TRUE"
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local sizeInput = createInputBox("Scale Size (X,Y,Z):", 0)
+local transInput = createInputBox("Transparency (0-1):", 40)
+local canCollideBtn = createToggleButton("CanCollide:", 80)
+local anchoredBtn = createToggleButton("Anchored:", 120)
+
+local function toggleBool(btn)
+    local isTrue = (btn.Text == "TRUE")
+    btn.Text = isTrue and "FALSE" or "TRUE"
+    btn.BackgroundColor3 = isTrue and Color3.fromRGB(180, 60, 60) or Color3.fromRGB(60, 150, 60)
+end
+canCollideBtn.MouseButton1Click:Connect(function() toggleBool(canCollideBtn) end)
+anchoredBtn.MouseButton1Click:Connect(function() toggleBool(anchoredBtn) end)
+
+local applyEditBtn = Instance.new("TextButton", page2)
+applyEditBtn.Size = UDim2.new(1, -20, 0, 35) applyEditBtn.Position = UDim2.new(0, 10, 1, -45)
+applyEditBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100) applyEditBtn.TextColor3 = Color3.new(1,1,1)
+applyEditBtn.Font = Enum.Font.GothamBold applyEditBtn.Text = "✅ APPLY CHANGES (บันทึกค่า)"
+Instance.new("UICorner", applyEditBtn).CornerRadius = UDim.new(0, 6)
+
+local function updateEditorFields(obj)
+    if obj and obj:IsA("BasePart") then
+        sizeInput.Text = string.format("%.1f, %.1f, %.1f", obj.Size.X, obj.Size.Y, obj.Size.Z)
+        transInput.Text = tostring(obj.Transparency)
+        canCollideBtn.Text = obj.CanCollide and "TRUE" or "FALSE"
+        canCollideBtn.BackgroundColor3 = obj.CanCollide and Color3.fromRGB(60, 150, 60) or Color3.fromRGB(180, 60, 60)
+        anchoredBtn.Text = obj.Anchored and "TRUE" or "FALSE"
+        anchoredBtn.BackgroundColor3 = obj.Anchored and Color3.fromRGB(60, 150, 60) or Color3.fromRGB(180, 60, 60)
+    end
+end
+
+applyEditBtn.MouseButton1Click:Connect(function()
+    if currentTarget and currentTarget:IsA("BasePart") then
+        pcall(function()
+            local s = string.split(sizeInput.Text, ",")
+            if #s == 3 then currentTarget.Size = Vector3.new(tonumber(s[1]), tonumber(s[2]), tonumber(s[3])) end
+            currentTarget.Transparency = tonumber(transInput.Text) or currentTarget.Transparency
+            currentTarget.CanCollide = (canCollideBtn.Text == "TRUE")
+            currentTarget.Anchored = (anchoredBtn.Text == "TRUE")
+            applyEditBtn.Text = "✅ SUCCESS!" task.wait(1) applyEditBtn.Text = "✅ APPLY CHANGES (บันทึกค่า)"
+        end)
+    end
+end)
+
+-- ==========================================
+-- 5. แท็บที่ 3: CODER
+-- ==========================================
+local codeBox = Instance.new("TextBox", page3)
+codeBox.Size = UDim2.new(1, -20, 1, -95) codeBox.Position = UDim2.new(0, 10, 0, 5)
+codeBox.BackgroundColor3 = Color3.fromRGB(15, 15, 18) codeBox.TextColor3 = Color3.fromRGB(150, 255, 150)
+codeBox.Font = Enum.Font.Code codeBox.TextSize = 11 codeBox.TextXAlignment = Enum.TextXAlignment.Left codeBox.TextYAlignment = Enum.TextYAlignment.Top
+codeBox.TextWrapped = true codeBox.ClearTextOnFocus = false codeBox.MultiLine = true
+codeBox.Text = "-- รอการสร้างสคริปต์..."
+Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 6)
+
+local genCodeBtn = Instance.new("TextButton", page3)
+genCodeBtn.Size = UDim2.new(0.65, 0, 0, 35) genCodeBtn.Position = UDim2.new(0, 10, 1, -85)
+genCodeBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0) genCodeBtn.TextColor3 = Color3.new(1,1,1)
+genCodeBtn.Font = Enum.Font.GothamBold genCodeBtn.Text = "⚙️ GENERATE SCRIPT"
+Instance.new("UICorner", genCodeBtn).CornerRadius = UDim.new(0, 6)
+
+local copyCodeBtn = Instance.new("TextButton", page3)
+copyCodeBtn.Size = UDim2.new(0.3, 0, 0, 35) copyCodeBtn.Position = UDim2.new(0.7, -10, 1, -85)
+copyCodeBtn.BackgroundColor3 = Color3.fromRGB(60, 150, 60) copyCodeBtn.TextColor3 = Color3.new(1,1,1)
+copyCodeBtn.Font = Enum.Font.GothamBold copyCodeBtn.Text = "📋 COPY"
+Instance.new("UICorner", copyCodeBtn).CornerRadius = UDim.new(0, 6)
+
+local codeHelpLabel = Instance.new("TextLabel", page3)
+codeHelpLabel.Size = UDim2.new(1, -20, 0, 30) codeHelpLabel.Position = UDim2.new(0, 10, 1, -40)
+codeHelpLabel.BackgroundTransparency = 1 codeHelpLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+codeHelpLabel.Font = Enum.Font.GothamMedium codeHelpLabel.TextSize = 11 codeHelpLabel.TextWrapped = true
+codeHelpLabel.Text = "สคริปต์นี้เอาไว้ใส่ใน Executor ให้รันทำงานออโต้รัวๆ"
+
+genCodeBtn.MouseButton1Click:Connect(function()
+    if not currentTarget then codeBox.Text = "-- กรุณาสแกนเป้าหมายก่อนครับ!" return end
+    
+    local code = "-- [ GENERATED AUTO-FARM SCRIPT ] --\n\n"
+    code = code .. "local targetPath = " .. currentPathStr .. "\n"
+    code = code .. "local player = game.Players.LocalPlayer\n\n"
+    
+    if currentTarget:FindFirstChildOfClass("TouchTransmitter") then
+        code = code .. "-- [ระบบเหยียบปุ่ม (Touch)]\n"
+        code = code .. "while task.wait(0.5) do\n"
+        code = code .. "    pcall(function()\n"
+        code = code .. "        local hrp = player.Character.HumanoidRootPart\n"
+        code = code .. "        firetouchinterest(hrp, targetPath, 0)\n"
+        code = code .. "        task.wait()\n"
+        code = code .. "        firetouchinterest(hrp, targetPath, 1)\n"
+        code = code .. "    end)\n"
+        code = code .. "end"
+    elseif currentTarget:FindFirstChildOfClass("ProximityPrompt") then
+        code = code .. "-- [ระบบกด E อัตโนมัติ (Proximity)]\n"
+        code = code .. "while task.wait(0.5) do\n"
+        code = code .. "    pcall(function()\n"
+        code = code .. "        local prompt = targetPath:FindFirstChildOfClass('ProximityPrompt')\n"
+        code = code .. "        if prompt then fireproximityprompt(prompt) end\n"
+        code = code .. "    end)\n"
+        code = code .. "end"
+    else
+        code = code .. "-- [ระบบวาร์ปไปหา (Teleport Loop)]\n"
+        code = code .. "while task.wait(1) do\n"
+        code = code .. "    pcall(function()\n"
+        code = code .. "        if targetPath:IsA('BasePart') then\n"
+        code = code .. "            player.Character:PivotTo(targetPath.CFrame)\n"
+        code = code .. "        end\n"
+        code = code .. "    end)\n"
+        code = code .. "end"
+    end
+    
+    codeBox.Text = code
+end)
+
+copyCodeBtn.MouseButton1Click:Connect(function()
+    if setclipboard then setclipboard(codeBox.Text) copyCodeBtn.Text = "Copied!" task.wait(1) copyCodeBtn.Text = "📋 COPY" end
+end)
+
+-- ==========================================
+-- 6. ระบบวิเคราะห์ข้อมูลหลัก
+-- ==========================================
+local function getDetailedPath(obj)
+    local success, result = pcall(function()
+        local pathParts = {} local current = obj
+        while current and current ~= game do
+            table.insert(pathParts, 1, current.Name) current = current.Parent
+        end
+        return "game." .. table.concat(pathParts, ".")
+    end)
+    return success and result or "Error"
+end
+
+local function getFirstModel(obj)
+    local current = obj.Parent
+    while current and current ~= workspace and current ~= game do
+        if current:IsA("Model") then return current end current = current.Parent
+    end
+    return obj
+end
+
+-- ==========================================
+-- 7. ระบบสัมผัสหน้าจอ
+-- ==========================================
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not frame.Visible then return end
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if mouse.Target then
+            local obj = mouse.Target
+            if SCAN_MODE == "Model" then obj = getFirstModel(obj) end
+            
+            currentTarget = obj
+            currentPathStr = getDetailedPath(obj)
+            highlight.Adornee = obj
+            
+            local txt = "<font color='#00FFAA'><b>[ ข้อมูลพื้นฐาน ]</b></font>\n"
+            txt = txt .. "ชื่อ: " .. obj.Name .. " | ประเภท: " .. obj.ClassName .. "\n\n"
+            txt = txt .. "<font color='#00FFAA'><b>[ Path ]</b></font>\n<font color='#AADDFF'>" .. currentPathStr .. "</font>\n\n"
+            
+            if obj:FindFirstChildOfClass("TouchTransmitter") then txt = txt .. "🟢 โต้ตอบแบบ: เดินเหยียบ (Touch)\n" end
+            if obj:FindFirstChildOfClass("ProximityPrompt") then txt = txt .. "⌨️ โต้ตอบแบบ: กด E (Proximity)\n" end
+            if obj:FindFirstChildOfClass("ClickDetector") then txt = txt .. "🖱️ โต้ตอบแบบ: คลิกเมาส์\n" end
+            
+            currentDataStr = txt:gsub("<[^>]+>", "")
+            infoLabel.Text = txt
+            
+            updateEditorFields(obj)
+        end
+    end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible if not frame.Visible then highlight.Adornee = nil end end)
+closeButton.MouseButton1Click:Connect(function() frame.Visible = false highlight.Adornee = nil end)
+modeBtn.MouseButton1Click:Connect(function()
+    SCAN_MODE = (SCAN_MODE == "Part") and "Model" or "Part"
+    modeBtn.Text = "Mode: " .. SCAN_MODE
+    modeBtn.BackgroundColor3 = (SCAN_MODE == "Model") and Color3.fromRGB(150, 60, 180) or Color3.fromRGB(60, 60, 180)
+end)
+copyPathBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(currentPathStr) end end)
+copyDataBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(currentDataStr) end end)
+tpBtn.MouseButton1Click:Connect(function() if currentTarget and localPlayer.Character then localPlayer.Character:PivotTo(currentTarget.CFrame + Vector3.new(0,3,0)) end end)
+bringBtn.MouseButton1Click:Connect(function() if currentTarget and currentTarget:IsA("BasePart") then currentTarget.CFrame = localPlayer.Character.HumanoidRootPart.CFrame end end)
+destroyBtn.MouseButton1Click:Connect(function() if currentTarget then currentTarget:Destroy() highlight.Adornee = nil end end)
+
+infoLabel.Text = "✅ โหลด V5.1 สำเร็จ!\nระบบแท็บเมนูพร้อมใช้งาน แตะที่วัตถุได้เลย"
