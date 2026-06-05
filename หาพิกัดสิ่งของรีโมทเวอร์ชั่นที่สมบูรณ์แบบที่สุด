@@ -1,0 +1,252 @@
+-- [[ ADVANCED SCANNER V5.5.2 (DRAGGABLE TOGGLE & STABLE INJECTOR) ]] --
+local p = game:GetService("Players")
+local uis = game:GetService("UserInputService")
+local lp = p.LocalPlayer
+local mouse = lp:GetMouse()
+local mode, tgt, path = "Part", nil, ""
+_G.ScannerAutoFarm = false
+
+local pg = lp:WaitForChild("PlayerGui")
+pcall(function() if pg:FindFirstChild("MobScan") then pg.MobScan:Destroy() end end)
+
+local sg = Instance.new("ScreenGui", pg)
+sg.Name = "MobScan"
+sg.ResetOnSpawn = false
+sg.DisplayOrder = 9999999 -- ให้ GUI นี้อยู่บนสุดของเกม
+
+local hl = Instance.new("Highlight", pg)
+hl.FillColor = Color3.fromRGB(0, 255, 150)
+hl.OutlineColor = Color3.new(1, 1, 1)
+
+-- [ สร้างปุ่มแว่นขยาย ]
+local tog = Instance.new("TextButton", sg)
+tog.Size, tog.Position = UDim2.new(0, 45, 0, 45), UDim2.new(0, 15, 0.5, -20)
+tog.BackgroundColor3, tog.Text = Color3.fromRGB(0, 150, 255), "🔍"
+tog.ZIndex = 9999 -- บังคับให้อยู่บนสุดเสมอ ไม่โดนหน้าต่างหลักบัง
+Instance.new("UICorner", tog).CornerRadius = UDim.new(1, 0)
+
+-- [ สร้างหน้าต่างหลัก ]
+local fr = Instance.new("Frame", sg)
+fr.Size, fr.Position = UDim2.new(0, 450, 0, 380), UDim2.new(0.5, -225, 0.2, 0)
+fr.BackgroundColor3, fr.ClipsDescendants, fr.Visible = Color3.fromRGB(25, 25, 28), true, true
+fr.ZIndex = 1
+Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 8)
+
+local tb = Instance.new("Frame", fr)
+tb.Size, tb.BackgroundColor3 = UDim2.new(1, 0, 0, 35), Color3.fromRGB(20, 20, 22)
+
+local tl = Instance.new("TextLabel", tb)
+tl.Size, tl.Position, tl.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner V5.5.2 (Draggable Toggle)"
+tl.TextColor3, tl.Font, tl.BackgroundTransparency, tl.TextXAlignment = Color3.new(1, 1, 1), Enum.Font.GothamBold, 1, Enum.TextXAlignment.Left
+
+local cl = Instance.new("TextButton", tb)
+cl.Size, cl.Position = UDim2.new(0, 30, 0, 25), UDim2.new(1, -35, 0, 5)
+cl.BackgroundColor3, cl.TextColor3, cl.Text, cl.Font = Color3.fromRGB(200, 50, 50), Color3.new(1, 1, 1), "X", Enum.Font.GothamBold
+Instance.new("UICorner", cl).CornerRadius = UDim.new(0, 6)
+
+-- [ ระบบลากหน้าต่างหลัก ]
+local dt, ds, sp
+tb.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dt, ds, sp = true, i.Position, fr.Position
+        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dt = false end end)
+    end
+end)
+uis.InputChanged:Connect(function(i)
+    if (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and dt then
+        local d = i.Position - ds
+        fr.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
+    end
+end)
+
+-- [ 🔥 ระบบลากปุ่มแว่นขยาย (Smart Drag) ]
+local togDrag, togStartPos, togStartInput, isDraggingTog
+tog.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        togDrag, isDraggingTog = true, false
+        togStartInput, togStartPos = i.Position, tog.Position
+        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then togDrag = false end end)
+    end
+end)
+uis.InputChanged:Connect(function(i)
+    if (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and togDrag then
+        local delta = i.Position - togStartInput
+        if delta.Magnitude > 5 then -- ลากเกิน 5 pixel จะถือว่าตั้งใจลาก ไม่ใช่คลิก
+            isDraggingTog = true
+            tog.Position = UDim2.new(togStartPos.X.Scale, togStartPos.X.Offset + delta.X, togStartPos.Y.Scale, togStartPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+
+local tBar = Instance.new("Frame", fr)
+tBar.Size, tBar.Position, tBar.BackgroundColor3, tBar.BorderSizePixel = UDim2.new(1, 0, 0, 35), UDim2.new(0, 0, 0, 35), Color3.fromRGB(30, 30, 35), 0
+
+local function mkTab(tx, px)
+    local b = Instance.new("TextButton", tBar)
+    b.Size, b.Position = UDim2.new(0.33, 0, 1, 0), UDim2.new(px, 0, 0, 0)
+    b.BackgroundTransparency, b.TextColor3, b.Font, b.TextSize, b.Text = 1, Color3.fromRGB(150, 150, 150), Enum.Font.GothamBold, 11, tx
+    return b
+end
+local tb1, tb3, tb4 = mkTab("🔍 SCAN", 0), mkTab("⚙️ CODE", 0.33), mkTab("📡 SPY", 0.66)
+
+local pc = Instance.new("Frame", fr)
+pc.Size, pc.Position, pc.BackgroundTransparency = UDim2.new(1, 0, 1, -70), UDim2.new(0, 0, 0, 70), 1
+local p1, p3, p4 = Instance.new("Frame", pc), Instance.new("Frame", pc), Instance.new("Frame", pc)
+p1.Size, p1.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+p3.Size, p3.BackgroundTransparency, p3.Visible = UDim2.new(1, 0, 1, 0), 1, false
+p4.Size, p4.BackgroundTransparency, p4.Visible = UDim2.new(1, 0, 1, 0), 1, false
+
+local function sw(n)
+    p1.Visible, p3.Visible, p4.Visible = (n == 1), (n == 3), (n == 4)
+    tb1.TextColor3 = (n == 1) and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(150, 150, 150)
+    tb3.TextColor3 = (n == 3) and Color3.fromRGB(255, 150, 0) or Color3.fromRGB(150, 150, 150)
+    tb4.TextColor3 = (n == 4) and Color3.fromRGB(255, 50, 100) or Color3.fromRGB(150, 150, 150)
+end
+tb1.MouseButton1Click:Connect(function() sw(1) end) tb3.MouseButton1Click:Connect(function() sw(3) end) tb4.MouseButton1Click:Connect(function() sw(4) end) sw(1)
+
+local function mkBtn(p, tx, px, c, w)
+    local b = Instance.new("TextButton", p)
+    b.Size, b.Position = UDim2.new(w or 0.32, 0, 0, 30), UDim2.new(px, 0, 1, -75)
+    b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text = c, Color3.new(1, 1, 1), Enum.Font.GothamBold, 11, tx
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
+end
+
+-- [ TAB 1: SCANNER ]
+local is = Instance.new("ScrollingFrame", p1)
+is.Size, is.Position, is.BackgroundTransparency, is.AutomaticCanvasSize = UDim2.new(1, -20, 1, -85), UDim2.new(0, 10, 0, 5), 1, Enum.AutomaticSize.Y
+local il = Instance.new("TextLabel", is)
+il.Size, il.AutomaticSize, il.BackgroundTransparency = UDim2.new(1, -10, 0, 0), Enum.AutomaticSize.Y, 1
+il.TextColor3, il.Font, il.TextWrapped, il.TextXAlignment, il.RichText = Color3.fromRGB(220, 220, 220), Enum.Font.GothamMedium, true, Enum.TextXAlignment.Left, true
+il.Text = "แตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก..."
+
+local btTp = mkBtn(p1, "Teleport", 0, Color3.fromRGB(40, 160, 180))
+local btMd = mkBtn(p1, "Mode: Part", 0.34, Color3.fromRGB(60, 60, 180))
+local btDs = mkBtn(p1, "Destroy", 0.68, Color3.fromRGB(180, 40, 40))
+
+-- [ TAB 3: CODE ]
+local cbx = Instance.new("TextBox", p3)
+cbx.Size, cbx.Position = UDim2.new(1, -20, 1, -130), UDim2.new(0, 10, 0, 5)
+cbx.BackgroundColor3, cbx.TextColor3, cbx.Font, cbx.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 11
+cbx.TextXAlignment, cbx.TextYAlignment, cbx.TextWrapped, cbx.ClearTextOnFocus, cbx.MultiLine = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, false, true
+cbx.Text = "-- วางโค้ด Remote ที่นี่ แล้วกด RUN เพื่อเริ่ม Auto-Farm"
+Instance.new("UICorner", cbx).CornerRadius = UDim.new(0, 6)
+
+local btG = mkBtn(p3, "⚙️ GENERATE", 0.02, Color3.fromRGB(255, 150, 0), 0.63) btG.Position = UDim2.new(0.02, 0, 1, -115)
+local btC = mkBtn(p3, "📋 COPY", 0.67, Color3.fromRGB(60, 150, 60), 0.3) btC.Position = UDim2.new(0.67, 0, 1, -115)
+local btR = mkBtn(p3, "▶️ RUN (EXECUTE)", 0.02, Color3.fromRGB(0, 200, 100), 0.63) btR.Position = UDim2.new(0.02, 0, 1, -75)
+local btS = mkBtn(p3, "🛑 STOP", 0.67, Color3.fromRGB(200, 50, 50), 0.3) btS.Position = UDim2.new(0.67, 0, 1, -75)
+
+btG.MouseButton1Click:Connect(function() if tgt then cbx.Text = "-- โค้ดสำหรับ: " .. path .. "\nlocal args = {[1] = 1}\n-- แก้ไขโค้ดและกด RUN" end end)
+btC.MouseButton1Click:Connect(function() if setclipboard then setclipboard(cbx.Text) end end)
+
+btR.MouseButton1Click:Connect(function()
+    if cbx.Text == "" then return end
+    _G.ScannerAutoFarm = true
+    btR.Text, btR.BackgroundColor3 = "🔄 RUNNING...", Color3.fromRGB(150, 150, 50)
+    
+    local codeToRun = cbx.Text
+    local func = nil
+    pcall(function() func = loadstring(codeToRun) end)
+    
+    task.spawn(function()
+        while _G.ScannerAutoFarm do
+            pcall(function() if func then func() end end)
+            task.wait(0.1)
+        end
+    end)
+end)
+
+btS.MouseButton1Click:Connect(function() _G.ScannerAutoFarm = false btR.Text, btR.BackgroundColor3 = "▶️ RUN (EXECUTE)", Color3.fromRGB(0, 200, 100) end)
+
+-- [ TAB 4: SPY ]
+local rls = Instance.new("ScrollingFrame", p4)
+rls.Size, rls.Position, rls.BackgroundColor3, rls.ScrollBarThickness = UDim2.new(0.4, -5, 1, -40), UDim2.new(0, 5, 0, 5), Color3.fromRGB(20, 20, 25), 4
+Instance.new("UICorner", rls).CornerRadius = UDim.new(0, 4)
+
+local scb = Instance.new("TextBox", p4)
+scb.Size, scb.Position = UDim2.new(0.6, -15, 1, -40), UDim2.new(0.4, 10, 0, 5)
+scb.BackgroundColor3, scb.TextColor3, scb.Font, scb.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 11
+scb.TextXAlignment, scb.TextYAlignment, scb.TextWrapped, scb.ClearTextOnFocus = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, false
+scb.Text = "-- ระบบ SPY พร้อมใช้งาน"
+Instance.new("UICorner", scb).CornerRadius = UDim.new(0, 4)
+
+local msb = mkBtn(p4, "🔍 SCAN", 0.01, Color3.fromRGB(180, 60, 60), 0.38) msb.Position = UDim2.new(0.01, 0, 1, -30)
+local csb = mkBtn(p4, "📋 COPY", 0.42, Color3.fromRGB(60, 150, 60), 0.56) csb.Position = UDim2.new(0.42, 0, 1, -30)
+
+local rc = 0
+local function addR(o)
+    local b = Instance.new("TextButton", rls)
+    b.Size, b.Position = UDim2.new(1, -10, 0, 25), UDim2.new(0, 5, 0, rc * 30)
+    b.BackgroundColor3 = o:IsA("RemoteEvent") and Color3.fromRGB(150, 50, 80) or Color3.fromRGB(50, 80, 150)
+    b.TextColor3, b.Font, b.TextSize, b.TextTruncate, b.Text = Color3.new(1, 1, 1), Enum.Font.GothamMedium, 10, Enum.TextTruncate.AtEnd, "⚡ " .. o.Name
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+    b.MouseButton1Click:Connect(function()
+        local p = o:GetFullName()
+        scb.Text = o:IsA("RemoteEvent") and "local a={[1]=1}\ngame." .. p .. ":FireServer(unpack(a))" or "local a={[1]=1}\nprint(game." .. p .. ":InvokeServer(unpack(a)))"
+    end)
+    rc = rc + 1
+    rls.CanvasSize = UDim2.new(0, 0, 0, rc * 30)
+end
+
+local lR = {}
+task.spawn(function()
+    pcall(function()
+        if hookmetamethod and getnamecallmethod and checkcaller then
+            local oldNamecall
+            oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(s, ...)
+                local m = getnamecallmethod()
+                if not checkcaller() and m == "FireServer" and s:IsA("RemoteEvent") then
+                    if not lR[s] then lR[s] = true task.spawn(function() addR(s) end) end
+                end
+                return oldNamecall(s, ...)
+            end))
+        end
+    end)
+end)
+
+msb.MouseButton1Click:Connect(function()
+    for _, v in pairs(rls:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    rc = 0; msb.Text = "⏳..." task.wait(0.1)
+    for _, o in pairs(game:GetDescendants()) do if o:IsA("RemoteEvent") or o:IsA("RemoteFunction") then addR(o) end end
+    msb.Text = "🔍 SCAN"
+end)
+csb.MouseButton1Click:Connect(function() if setclipboard then setclipboard(scb.Text) end end)
+
+local function gp(o)
+    local s, r = pcall(function()
+        local pp, c = {}, o
+        while c and c ~= game do table.insert(pp, 1, c.Name); c = c.Parent end
+        return "game." .. table.concat(pp, ".")
+    end)
+    return s and r or "Err"
+end
+
+uis.InputBegan:Connect(function(i, g)
+    if g or not fr.Visible then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if mouse.Target then
+            local o = mouse.Target
+            if mode == "Model" then
+                local c = o.Parent
+                while c and c ~= workspace and c ~= game do if c:IsA("Model") then o = c; break end c = c.Parent end
+            end
+            tgt = o; path = gp(o); hl.Adornee = o
+            local tInfo = "<font color='#00FFAA'><b>[ ข้อมูลโครงสร้างหลัก ]</b></font>\nชื่อ: " .. o.Name .. "\nประเภท: " .. o.ClassName .. "\n\n<font color='#AADDFF'>" .. path .. "</font>\n"
+            if o:IsA("BasePart") then tInfo = tInfo .. "\n<font color='#00FFAA'><b>[ กายภาพ ]</b></font>\nพิกัด: " .. string.format("%.1f, %.1f, %.1f", o.Position.X, o.Position.Y, o.Position.Z) end
+            il.Text = tInfo
+        end
+    end
+end)
+
+-- [ ควบคุมการกดปุ่มแว่นขยายให้เปิดปิดหน้าต่างเฉพาะตอนไม่ได้ลาก ]
+tog.MouseButton1Click:Connect(function()
+    if not isDraggingTog then
+        fr.Visible = not fr.Visible
+        hl.Adornee = fr.Visible and tgt or nil
+    end
+end)
+cl.MouseButton1Click:Connect(function() fr.Visible = false end)
+btMd.MouseButton1Click:Connect(function() mode = mode == "Part" and "Model" or "Part" btMd.Text = "Mode: " .. mode end)
+btTp.MouseButton1Click:Connect(function() if tgt and lp.Character then lp.Character:PivotTo(tgt.CFrame + Vector3.new(0, 3, 0)) end end)
+btDs.MouseButton1Click:Connect(function() if tgt then tgt:Destroy(); hl.Adornee = nil end end)
