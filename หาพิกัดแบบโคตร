@@ -1,4 +1,4 @@
--- [[ ADVANCED OBJECT SCANNER V4.0 (GOD MODE - MOBILE) ]] --
+-- [[ ADVANCED OBJECT SCANNER V4.1 (GOD MODE - BUG FIXED) ]] --
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -27,7 +27,6 @@ screenGui.Name = "MobileScannerPanel"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = guiParent
 
--- ปุ่มวงกลมลอยสำหรับมือถือ (แว่นขยาย 🔍)
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 45, 0, 45)
 toggleBtn.Position = UDim2.new(0, 15, 0.5, -20)
@@ -40,7 +39,7 @@ Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
 -- ==========================================
 -- 2. หน้าต่างหลัก (Main UI)
 -- ==========================================
-local DEFAULT_SIZE = UDim2.new(0, 420, 0, 420) -- ขยายความสูงเพื่อรองรับปุ่มใหม่
+local DEFAULT_SIZE = UDim2.new(0, 420, 0, 420)
 
 local frame = Instance.new("Frame")
 frame.Size = DEFAULT_SIZE
@@ -69,7 +68,7 @@ fixCorner.BorderSizePixel = 0
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -100, 1, 0)
 titleLabel.Position = UDim2.new(0, 15, 0, 0)
-titleLabel.Text = "⚡ Scanner v4.0 (God Mode)"
+titleLabel.Text = "⚡ Scanner v4.1 (God Mode)"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 14
 titleLabel.Font = Enum.Font.GothamBold
@@ -106,7 +105,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- พื้นที่แสดงข้อมูล (หดให้เล็กลงเพื่อเว้นที่ให้ปุ่ม 2 แถว)
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size = UDim2.new(1, -20, 1, -140) 
 scrollFrame.Position = UDim2.new(0, 10, 0, 50)
@@ -148,7 +146,6 @@ local function createButton(parent, text, posScale, color)
     return btn
 end
 
--- แถวที่ 1: Quick Actions (วาร์ป, ดึง, ทำลาย)
 local actionPanel = Instance.new("Frame")
 actionPanel.Size = UDim2.new(1, -20, 0, 35)
 actionPanel.Position = UDim2.new(0, 10, 1, -85)
@@ -159,7 +156,6 @@ local tpBtn = createButton(actionPanel, "Teleport", 0, Color3.fromRGB(40, 160, 1
 local bringBtn = createButton(actionPanel, "Bring (Unanchored)", 0.34, Color3.fromRGB(180, 140, 40))
 local destroyBtn = createButton(actionPanel, "Destroy (Client)", 0.68, Color3.fromRGB(180, 40, 40))
 
--- แถวที่ 2: เครื่องมือคัดลอก (โหมด, คัดลอก Path, คัดลอกข้อมูล)
 local btnPanel = Instance.new("Frame")
 btnPanel.Size = UDim2.new(1, -20, 0, 35)
 btnPanel.Position = UDim2.new(0, 10, 1, -40)
@@ -175,7 +171,7 @@ local currentPathStr = ""
 local currentDataStr = ""
 
 local highlight = Instance.new("Highlight")
-highlight.FillColor = Color3.fromRGB(0, 255, 150) -- เปลี่ยนสีเป็นเขียวมิ้นต์ให้ดู High-tech
+highlight.FillColor = Color3.fromRGB(0, 255, 150) 
 highlight.FillTransparency = 0.5
 highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 highlight.Parent = guiParent
@@ -223,7 +219,6 @@ end
 copyPathBtn.MouseButton1Click:Connect(function() copyToClipboard(currentPathStr, copyPathBtn) end)
 copyDataBtn.MouseButton1Click:Connect(function() copyToClipboard(currentDataStr, copyDataBtn) end)
 
--- ปุ่ม Teleport
 tpBtn.MouseButton1Click:Connect(function()
     if not currentTarget then return end
     local char = localPlayer.Character
@@ -236,7 +231,6 @@ tpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ปุ่ม Bring
 bringBtn.MouseButton1Click:Connect(function()
     if not currentTarget then return end
     local char = localPlayer.Character
@@ -247,7 +241,6 @@ bringBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ปุ่ม Destroy
 destroyBtn.MouseButton1Click:Connect(function()
     if currentTarget and currentTarget ~= workspace and currentTarget ~= game then
         currentTarget:Destroy()
@@ -258,29 +251,31 @@ destroyBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 5. เครื่องยนต์วิเคราะห์ข้อมูลอัจฉริยะ (The Brain)
+-- 5. เครื่องยนต์วิเคราะห์ข้อมูลอัจฉริยะ (The Brain - FIXED)
 -- ==========================================
 local function analyzeObject(obj)
     local txt = "<font color='#00FFAA'><b>[ ข้อมูลพื้นฐาน ]</b></font>\n"
     txt = txt .. "ชื่อ: " .. obj.Name .. "\n"
     txt = txt .. "ประเภท: " .. obj.ClassName .. "\n\n"
 
-    -- 5.1 ระบบ Dynamic Pathing (หา Owner ของฐาน)
     local pathParts = {}
     local current = obj
     local isMyPlot = false
     local plotName = ""
 
     while current and current ~= game do
-        -- ค้นหาตัวแปร Owner ในโมเดลต่างๆ
-        local ownerVal = current:FindFirstChild("Owner") or current:FindFirstChild("owner")
-        if ownerVal and ownerVal:IsA("StringValue") or ownerVal:IsA("ObjectValue") then
-            local ownerName = ownerVal:IsA("StringValue") and ownerVal.Value or (ownerVal.Value and ownerVal.Value.Name)
-            if ownerName == localPlayer.Name then
-                isMyPlot = true
-                plotName = current.Name
+        -- [🔥 จุดที่แก้บั๊ก] ใส่ pcall กันพัง และใส่วงเล็บให้เงื่อนไขถูกต้อง
+        pcall(function()
+            local ownerVal = current:FindFirstChild("Owner") or current:FindFirstChild("owner")
+            if ownerVal and (ownerVal:IsA("StringValue") or ownerVal:IsA("ObjectValue")) then
+                local ownerName = ownerVal:IsA("StringValue") and ownerVal.Value or (ownerVal.Value and ownerVal.Value.Name)
+                if ownerName == localPlayer.Name then
+                    isMyPlot = true
+                    plotName = current.Name
+                end
             end
-        end
+        end)
+        
         table.insert(pathParts, 1, current.Name)
         current = current.Parent
     end
@@ -294,7 +289,6 @@ local function analyzeObject(obj)
     end
     txt = txt .. "\n"
 
-    -- 5.2 ระบบสแกนหา "จุดโต้ตอบ" (Triggers)
     local interactTxt = ""
     if obj:FindFirstChildOfClass("TouchTransmitter") then interactTxt = interactTxt .. "🟢 ต้องเดินเหยียบ (TouchTransmitter)\n" end
     if obj:FindFirstChildOfClass("ClickDetector") then interactTxt = interactTxt .. "🖱️ ต้องคลิกเมาส์ (ClickDetector)\n" end
@@ -304,24 +298,23 @@ local function analyzeObject(obj)
         txt = txt .. "<font color='#FF5555'><b>[ ระบบทำงานของปุ่มนี้ ]</b></font>\n" .. interactTxt .. "\n"
     end
 
-    -- 5.3 ระบบอ่านค่าตัวแปรลับ (Hidden Values & Attributes)
     local hiddenValues = ""
-    for _, child in ipairs(obj:GetChildren()) do
-        if child:IsA("ValueBase") then
-            hiddenValues = hiddenValues .. "- " .. child.Name .. ": <font color='#FFAA00'>" .. tostring(child.Value) .. "</font> ("..child.ClassName..")\n"
+    pcall(function()
+        for _, child in ipairs(obj:GetChildren()) do
+            if child:IsA("ValueBase") then
+                hiddenValues = hiddenValues .. "- " .. child.Name .. ": <font color='#FFAA00'>" .. tostring(child.Value) .. "</font> ("..child.ClassName..")\n"
+            end
         end
-    end
-    
-    local attrs = obj:GetAttributes()
-    for k, v in pairs(attrs) do
-        hiddenValues = hiddenValues .. "- [Attr] " .. k .. ": <font color='#FFAA00'>" .. tostring(v) .. "</font>\n"
-    end
+        local attrs = obj:GetAttributes()
+        for k, v in pairs(attrs) do
+            hiddenValues = hiddenValues .. "- [Attr] " .. k .. ": <font color='#FFAA00'>" .. tostring(v) .. "</font>\n"
+        end
+    end)
 
     if hiddenValues ~= "" then
         txt = txt .. "<font color='#FF55FF'><b>[ ตัวแปรที่ซ่อนอยู่ (Values/Attributes) ]</b></font>\n" .. hiddenValues .. "\n"
     end
 
-    -- ข้อมูลกายภาพ
     if obj:IsA("BasePart") then
         txt = txt .. "<font color='#00FFAA'><b>[ ข้อมูลกายภาพ ]</b></font>\n"
         txt = txt .. "CanCollide: " .. tostring(obj.CanCollide) .. " | Anchored: " .. tostring(obj.Anchored) .. "\n"
@@ -352,14 +345,17 @@ UserInputService.InputBegan:Connect(function(input, gpe)
             
             currentTarget = obj
             
-            -- ระบบป้องกันเกมค้าง (ถ้าเกิน 1,000 ชิ้น)
             local partCount = 0
             for _, child in ipairs(obj:GetDescendants()) do
                 if child:IsA("BasePart") then partCount = partCount + 1 end
                 if partCount > 1000 then break end
             end
             
-            local txt = analyzeObject(obj)
+            -- ครอบ pcall ป้องกันไม่ให้แครชเวลาเจอวัตถุแปลกๆ
+            local success, txt = pcall(function() return analyzeObject(obj) end)
+            if not success then
+                txt = "⚠️ เกิดข้อผิดพลาดในการอ่านข้อมูลวัตถุนี้\nError: " .. tostring(txt)
+            end
             
             if partCount > 1000 then
                 highlight.Adornee = nil
@@ -374,4 +370,4 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
-infoLabel.Text = "✅ โหลด V4 (God Mode) สำเร็จ!\nแตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก"
+infoLabel.Text = "✅ โหลด V4.1 (Bug Fixed) สำเร็จ!\nแตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก"
