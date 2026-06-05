@@ -1,0 +1,377 @@
+-- [[ ADVANCED OBJECT SCANNER V4.0 (GOD MODE - MOBILE) ]] --
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+local SCAN_MODE = "Part"
+
+-- ==========================================
+-- 1. ระบบหาตำแหน่งวาง UI
+-- ==========================================
+local guiParent
+if gethui then
+    guiParent = gethui()
+else
+    local success, result = pcall(function() return game:GetService("CoreGui") end)
+    guiParent = success and result or localPlayer:WaitForChild("PlayerGui")
+end
+
+if guiParent:FindFirstChild("MobileScannerPanel") then
+    guiParent.MobileScannerPanel:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MobileScannerPanel"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = guiParent
+
+-- ปุ่มวงกลมลอยสำหรับมือถือ (แว่นขยาย 🔍)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 15, 0.5, -20)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+toggleBtn.Text = "🔍"
+toggleBtn.TextSize = 20
+toggleBtn.Parent = screenGui
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+
+-- ==========================================
+-- 2. หน้าต่างหลัก (Main UI)
+-- ==========================================
+local DEFAULT_SIZE = UDim2.new(0, 420, 0, 420) -- ขยายความสูงเพื่อรองรับปุ่มใหม่
+
+local frame = Instance.new("Frame")
+frame.Size = DEFAULT_SIZE
+frame.Position = UDim2.new(0.5, -210, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Active = true 
+frame.Visible = false 
+frame.Parent = screenGui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+topBar.BorderSizePixel = 0
+topBar.Active = true
+topBar.Parent = frame
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
+local fixCorner = Instance.new("Frame", topBar)
+fixCorner.Size = UDim2.new(1, 0, 0, 10)
+fixCorner.Position = UDim2.new(0, 0, 1, -10)
+fixCorner.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+fixCorner.BorderSizePixel = 0
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -100, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.Text = "⚡ Scanner v4.0 (God Mode)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 14
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = topBar
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -40, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Text = "X"
+closeButton.TextSize = 14
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = topBar
+Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 6)
+
+local dragToggle, dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragToggle then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- พื้นที่แสดงข้อมูล (หดให้เล็กลงเพื่อเว้นที่ให้ปุ่ม 2 แถว)
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, -20, 1, -140) 
+scrollFrame.Position = UDim2.new(0, 10, 0, 50)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scrollFrame.Active = true
+scrollFrame.Parent = frame
+
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -10, 0, 0)
+infoLabel.AutomaticSize = Enum.AutomaticSize.Y
+infoLabel.Text = "รอการสแกน..."
+infoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+infoLabel.TextSize = 13
+infoLabel.Font = Enum.Font.GothamMedium
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextWrapped = true
+infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+infoLabel.RichText = true
+infoLabel.Parent = scrollFrame
+
+-- ==========================================
+-- 3. แผงควบคุม (Action & Main Panels)
+-- ==========================================
+local function createButton(parent, text, posScale, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.32, 0, 1, 0)
+    btn.Position = UDim2.new(posScale, 0, 0, 0)
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Text = text
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.Parent = parent
+    return btn
+end
+
+-- แถวที่ 1: Quick Actions (วาร์ป, ดึง, ทำลาย)
+local actionPanel = Instance.new("Frame")
+actionPanel.Size = UDim2.new(1, -20, 0, 35)
+actionPanel.Position = UDim2.new(0, 10, 1, -85)
+actionPanel.BackgroundTransparency = 1
+actionPanel.Parent = frame
+
+local tpBtn = createButton(actionPanel, "Teleport", 0, Color3.fromRGB(40, 160, 180))
+local bringBtn = createButton(actionPanel, "Bring (Unanchored)", 0.34, Color3.fromRGB(180, 140, 40))
+local destroyBtn = createButton(actionPanel, "Destroy (Client)", 0.68, Color3.fromRGB(180, 40, 40))
+
+-- แถวที่ 2: เครื่องมือคัดลอก (โหมด, คัดลอก Path, คัดลอกข้อมูล)
+local btnPanel = Instance.new("Frame")
+btnPanel.Size = UDim2.new(1, -20, 0, 35)
+btnPanel.Position = UDim2.new(0, 10, 1, -40)
+btnPanel.BackgroundTransparency = 1
+btnPanel.Parent = frame
+
+local modeBtn = createButton(btnPanel, "Mode: Part", 0, Color3.fromRGB(60, 60, 180))
+local copyPathBtn = createButton(btnPanel, "Copy Path", 0.34, Color3.fromRGB(60, 150, 60))
+local copyDataBtn = createButton(btnPanel, "Copy All Data", 0.68, Color3.fromRGB(150, 80, 150))
+
+local currentTarget = nil
+local currentPathStr = ""
+local currentDataStr = ""
+
+local highlight = Instance.new("Highlight")
+highlight.FillColor = Color3.fromRGB(0, 255, 150) -- เปลี่ยนสีเป็นเขียวมิ้นต์ให้ดู High-tech
+highlight.FillTransparency = 0.5
+highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+highlight.Parent = guiParent
+
+-- ==========================================
+-- 4. ระบบการทำงานของปุ่ม
+-- ==========================================
+toggleBtn.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+    if not frame.Visible then highlight.Adornee = nil end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    highlight.Adornee = nil 
+end)
+
+modeBtn.MouseButton1Click:Connect(function()
+    if SCAN_MODE == "Part" then
+        SCAN_MODE = "Model"
+        modeBtn.Text = "Mode: Model"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(150, 60, 180)
+    else
+        SCAN_MODE = "Part"
+        modeBtn.Text = "Mode: Part"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 180)
+    end
+end)
+
+local function copyToClipboard(text, btnElement)
+    if setclipboard then
+        setclipboard(text)
+        local oldText = btnElement.Text
+        btnElement.Text = "Copied!"
+        task.wait(1.5)
+        btnElement.Text = oldText
+    else
+        local oldText = btnElement.Text
+        btnElement.Text = "Failed!"
+        task.wait(1.5)
+        btnElement.Text = oldText
+    end
+end
+
+copyPathBtn.MouseButton1Click:Connect(function() copyToClipboard(currentPathStr, copyPathBtn) end)
+copyDataBtn.MouseButton1Click:Connect(function() copyToClipboard(currentDataStr, copyDataBtn) end)
+
+-- ปุ่ม Teleport
+tpBtn.MouseButton1Click:Connect(function()
+    if not currentTarget then return end
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        if currentTarget:IsA("BasePart") then
+            char:PivotTo(currentTarget.CFrame + Vector3.new(0, 4, 0))
+        elseif currentTarget:IsA("Model") and currentTarget.PrimaryPart then
+            char:PivotTo(currentTarget.PrimaryPart.CFrame + Vector3.new(0, 4, 0))
+        end
+    end
+end)
+
+-- ปุ่ม Bring
+bringBtn.MouseButton1Click:Connect(function()
+    if not currentTarget then return end
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        if currentTarget:IsA("BasePart") then
+            currentTarget.CFrame = char.HumanoidRootPart.CFrame + (char.HumanoidRootPart.CFrame.LookVector * 5)
+        end
+    end
+end)
+
+-- ปุ่ม Destroy
+destroyBtn.MouseButton1Click:Connect(function()
+    if currentTarget and currentTarget ~= workspace and currentTarget ~= game then
+        currentTarget:Destroy()
+        currentTarget = nil
+        highlight.Adornee = nil
+        infoLabel.Text = "ลบวัตถุสำเร็จ (มีผลแค่ในหน้าจอเรา)"
+    end
+end)
+
+-- ==========================================
+-- 5. เครื่องยนต์วิเคราะห์ข้อมูลอัจฉริยะ (The Brain)
+-- ==========================================
+local function analyzeObject(obj)
+    local txt = "<font color='#00FFAA'><b>[ ข้อมูลพื้นฐาน ]</b></font>\n"
+    txt = txt .. "ชื่อ: " .. obj.Name .. "\n"
+    txt = txt .. "ประเภท: " .. obj.ClassName .. "\n\n"
+
+    -- 5.1 ระบบ Dynamic Pathing (หา Owner ของฐาน)
+    local pathParts = {}
+    local current = obj
+    local isMyPlot = false
+    local plotName = ""
+
+    while current and current ~= game do
+        -- ค้นหาตัวแปร Owner ในโมเดลต่างๆ
+        local ownerVal = current:FindFirstChild("Owner") or current:FindFirstChild("owner")
+        if ownerVal and ownerVal:IsA("StringValue") or ownerVal:IsA("ObjectValue") then
+            local ownerName = ownerVal:IsA("StringValue") and ownerVal.Value or (ownerVal.Value and ownerVal.Value.Name)
+            if ownerName == localPlayer.Name then
+                isMyPlot = true
+                plotName = current.Name
+            end
+        end
+        table.insert(pathParts, 1, current.Name)
+        current = current.Parent
+    end
+    
+    currentPathStr = "game." .. table.concat(pathParts, ".")
+    
+    txt = txt .. "<font color='#00FFAA'><b>[ ตำแหน่งอ้างอิง (Path) ]</b></font>\n"
+    txt = txt .. "<font color='#AADDFF'>" .. currentPathStr .. "</font>\n"
+    if isMyPlot then
+        txt = txt .. "<font color='#FFFF00'>🌟 พบว่าเป็นฐาน (Plot) ของคุณ! ("..plotName..")</font>\n"
+    end
+    txt = txt .. "\n"
+
+    -- 5.2 ระบบสแกนหา "จุดโต้ตอบ" (Triggers)
+    local interactTxt = ""
+    if obj:FindFirstChildOfClass("TouchTransmitter") then interactTxt = interactTxt .. "🟢 ต้องเดินเหยียบ (TouchTransmitter)\n" end
+    if obj:FindFirstChildOfClass("ClickDetector") then interactTxt = interactTxt .. "🖱️ ต้องคลิกเมาส์ (ClickDetector)\n" end
+    if obj:FindFirstChildOfClass("ProximityPrompt") then interactTxt = interactTxt .. "⌨️ ต้องกดปุ่มค้าง (ProximityPrompt)\n" end
+    
+    if interactTxt ~= "" then
+        txt = txt .. "<font color='#FF5555'><b>[ ระบบทำงานของปุ่มนี้ ]</b></font>\n" .. interactTxt .. "\n"
+    end
+
+    -- 5.3 ระบบอ่านค่าตัวแปรลับ (Hidden Values & Attributes)
+    local hiddenValues = ""
+    for _, child in ipairs(obj:GetChildren()) do
+        if child:IsA("ValueBase") then
+            hiddenValues = hiddenValues .. "- " .. child.Name .. ": <font color='#FFAA00'>" .. tostring(child.Value) .. "</font> ("..child.ClassName..")\n"
+        end
+    end
+    
+    local attrs = obj:GetAttributes()
+    for k, v in pairs(attrs) do
+        hiddenValues = hiddenValues .. "- [Attr] " .. k .. ": <font color='#FFAA00'>" .. tostring(v) .. "</font>\n"
+    end
+
+    if hiddenValues ~= "" then
+        txt = txt .. "<font color='#FF55FF'><b>[ ตัวแปรที่ซ่อนอยู่ (Values/Attributes) ]</b></font>\n" .. hiddenValues .. "\n"
+    end
+
+    -- ข้อมูลกายภาพ
+    if obj:IsA("BasePart") then
+        txt = txt .. "<font color='#00FFAA'><b>[ ข้อมูลกายภาพ ]</b></font>\n"
+        txt = txt .. "CanCollide: " .. tostring(obj.CanCollide) .. " | Anchored: " .. tostring(obj.Anchored) .. "\n"
+    end
+
+    return txt
+end
+
+local function getFirstModel(obj)
+    local current = obj.Parent
+    while current and current ~= workspace and current ~= game do
+        if current:IsA("Model") then return current end
+        current = current.Parent
+    end
+    return obj
+end
+
+-- ==========================================
+-- 6. ระบบแตะหน้าจอ (Touch & Click)
+-- ==========================================
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or not frame.Visible then return end
+    
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if mouse.Target then
+            local obj = mouse.Target
+            if SCAN_MODE == "Model" then obj = getFirstModel(obj) end
+            
+            currentTarget = obj
+            
+            -- ระบบป้องกันเกมค้าง (ถ้าเกิน 1,000 ชิ้น)
+            local partCount = 0
+            for _, child in ipairs(obj:GetDescendants()) do
+                if child:IsA("BasePart") then partCount = partCount + 1 end
+                if partCount > 1000 then break end
+            end
+            
+            local txt = analyzeObject(obj)
+            
+            if partCount > 1000 then
+                highlight.Adornee = nil
+                txt = txt .. "\n<font color='#FF4444'><b>⚠️ ปิดไฮไลต์:</b> วัตถุมีขนาดใหญ่เกินไปเพื่อป้องกันเกมค้าง</font>"
+            else
+                highlight.Adornee = obj
+            end
+
+            currentDataStr = txt:gsub("<[^>]+>", "")
+            infoLabel.Text = txt
+        end
+    end
+end)
+
+infoLabel.Text = "✅ โหลด V4 (God Mode) สำเร็จ!\nแตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก"
