@@ -1,4 +1,4 @@
--- [[ ADVANCED SCANNER V5.5.2 (DRAGGABLE TOGGLE & STABLE INJECTOR) ]] --
+-- [[ ADVANCED SCANNER V5.5.4 (HYBRID ENGINE & SMART DRAG) ]] --
 local p = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local lp = p.LocalPlayer
@@ -10,33 +10,26 @@ local pg = lp:WaitForChild("PlayerGui")
 pcall(function() if pg:FindFirstChild("MobScan") then pg.MobScan:Destroy() end end)
 
 local sg = Instance.new("ScreenGui", pg)
-sg.Name = "MobScan"
-sg.ResetOnSpawn = false
-sg.DisplayOrder = 9999999 -- ให้ GUI นี้อยู่บนสุดของเกม
+sg.Name, sg.ResetOnSpawn, sg.DisplayOrder = "MobScan", false, 9999999
 
 local hl = Instance.new("Highlight", pg)
-hl.FillColor = Color3.fromRGB(0, 255, 150)
-hl.OutlineColor = Color3.new(1, 1, 1)
+hl.FillColor, hl.OutlineColor = Color3.fromRGB(0, 255, 150), Color3.new(1, 1, 1)
 
--- [ สร้างปุ่มแว่นขยาย ]
 local tog = Instance.new("TextButton", sg)
 tog.Size, tog.Position = UDim2.new(0, 45, 0, 45), UDim2.new(0, 15, 0.5, -20)
-tog.BackgroundColor3, tog.Text = Color3.fromRGB(0, 150, 255), "🔍"
-tog.ZIndex = 9999 -- บังคับให้อยู่บนสุดเสมอ ไม่โดนหน้าต่างหลักบัง
+tog.BackgroundColor3, tog.Text, tog.ZIndex = Color3.fromRGB(0, 150, 255), "🔍", 9999
 Instance.new("UICorner", tog).CornerRadius = UDim.new(1, 0)
 
--- [ สร้างหน้าต่างหลัก ]
 local fr = Instance.new("Frame", sg)
 fr.Size, fr.Position = UDim2.new(0, 450, 0, 380), UDim2.new(0.5, -225, 0.2, 0)
-fr.BackgroundColor3, fr.ClipsDescendants, fr.Visible = Color3.fromRGB(25, 25, 28), true, true
-fr.ZIndex = 1
+fr.BackgroundColor3, fr.ClipsDescendants, fr.Visible, fr.ZIndex = Color3.fromRGB(25, 25, 28), true, true, 1
 Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 8)
 
 local tb = Instance.new("Frame", fr)
 tb.Size, tb.BackgroundColor3 = UDim2.new(1, 0, 0, 35), Color3.fromRGB(20, 20, 22)
 
 local tl = Instance.new("TextLabel", tb)
-tl.Size, tl.Position, tl.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner V5.5.2 (Draggable Toggle)"
+tl.Size, tl.Position, tl.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner V5.5.4 (Hybrid Engine)"
 tl.TextColor3, tl.Font, tl.BackgroundTransparency, tl.TextXAlignment = Color3.new(1, 1, 1), Enum.Font.GothamBold, 1, Enum.TextXAlignment.Left
 
 local cl = Instance.new("TextButton", tb)
@@ -44,7 +37,6 @@ cl.Size, cl.Position = UDim2.new(0, 30, 0, 25), UDim2.new(1, -35, 0, 5)
 cl.BackgroundColor3, cl.TextColor3, cl.Text, cl.Font = Color3.fromRGB(200, 50, 50), Color3.new(1, 1, 1), "X", Enum.Font.GothamBold
 Instance.new("UICorner", cl).CornerRadius = UDim.new(0, 6)
 
--- [ ระบบลากหน้าต่างหลัก ]
 local dt, ds, sp
 tb.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -59,7 +51,6 @@ uis.InputChanged:Connect(function(i)
     end
 end)
 
--- [ 🔥 ระบบลากปุ่มแว่นขยาย (Smart Drag) ]
 local togDrag, togStartPos, togStartInput, isDraggingTog
 tog.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -71,7 +62,7 @@ end)
 uis.InputChanged:Connect(function(i)
     if (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and togDrag then
         local delta = i.Position - togStartInput
-        if delta.Magnitude > 5 then -- ลากเกิน 5 pixel จะถือว่าตั้งใจลาก ไม่ใช่คลิก
+        if delta.Magnitude > 5 then
             isDraggingTog = true
             tog.Position = UDim2.new(togStartPos.X.Scale, togStartPos.X.Offset + delta.X, togStartPos.Y.Scale, togStartPos.Y.Offset + delta.Y)
         end
@@ -132,27 +123,58 @@ cbx.TextXAlignment, cbx.TextYAlignment, cbx.TextWrapped, cbx.ClearTextOnFocus, c
 cbx.Text = "-- วางโค้ด Remote ที่นี่ แล้วกด RUN เพื่อเริ่ม Auto-Farm"
 Instance.new("UICorner", cbx).CornerRadius = UDim.new(0, 6)
 
-local btG = mkBtn(p3, "⚙️ GENERATE", 0.02, Color3.fromRGB(255, 150, 0), 0.63) btG.Position = UDim2.new(0.02, 0, 1, -115)
+local btG = mkBtn(p3, "⚙️ GENERATE SCRIPT", 0.02, Color3.fromRGB(255, 150, 0), 0.63) btG.Position = UDim2.new(0.02, 0, 1, -115)
 local btC = mkBtn(p3, "📋 COPY", 0.67, Color3.fromRGB(60, 150, 60), 0.3) btC.Position = UDim2.new(0.67, 0, 1, -115)
 local btR = mkBtn(p3, "▶️ RUN (EXECUTE)", 0.02, Color3.fromRGB(0, 200, 100), 0.63) btR.Position = UDim2.new(0.02, 0, 1, -75)
 local btS = mkBtn(p3, "🛑 STOP", 0.67, Color3.fromRGB(200, 50, 50), 0.3) btS.Position = UDim2.new(0.67, 0, 1, -75)
 
-btG.MouseButton1Click:Connect(function() if tgt then cbx.Text = "-- โค้ดสำหรับ: " .. path .. "\nlocal args = {[1] = 1}\n-- แก้ไขโค้ดและกด RUN" end end)
+-- กลับไปใช้รูปแบบข้อความ V5.2 เพื่อให้คุ้นเคย
+btG.MouseButton1Click:Connect(function()
+    if not tgt then cbx.Text="⚠️ สแกนวัตถุก่อน!" return end
+    local c=""
+    if tgt:FindFirstChildOfClass("TouchTransmitter") then
+        c="-- [ AUTO-FARM SCRIPT ] --\nlocal targetPath = "..path.."\nlocal p = game.Players.LocalPlayer\nwhile task.wait(0.5) do\n pcall(function()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 0)\n  task.wait()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 1)\n end)\nend"
+    elseif tgt:FindFirstChildOfClass("ProximityPrompt") then
+        c="-- [ AUTO-FARM SCRIPT ] --\nlocal targetPath = "..path.."\nwhile task.wait(0.5) do\n pcall(function()\n  fireproximityprompt(targetPath:FindFirstChildOfClass('ProximityPrompt'))\n end)\nend"
+    else
+        c="-- [ OBJECT PATH ]\n-- วัตถุนี้ไม่ใช่ปุ่มกด\n-- ให้นำโค้ดจากหน้า 📡 SPY มาวางที่นี่เพื่อรัน\n-- Path: "..path
+    end
+    cbx.Text=c
+end)
+
 btC.MouseButton1Click:Connect(function() if setclipboard then setclipboard(cbx.Text) end end)
 
+-- Hybrid Run Logic (ฉลาดและเสถียรที่สุด)
 btR.MouseButton1Click:Connect(function()
     if cbx.Text == "" then return end
     _G.ScannerAutoFarm = true
     btR.Text, btR.BackgroundColor3 = "🔄 RUNNING...", Color3.fromRGB(150, 150, 50)
     
-    local codeToRun = cbx.Text
+    local txt = cbx.Text
+    local isNativeFarm = string.find(txt, "AUTO%-FARM SCRIPT")
     local func = nil
-    pcall(function() func = loadstring(codeToRun) end)
+    
+    if not isNativeFarm then
+        pcall(function() func = loadstring(txt) end)
+    end
     
     task.spawn(function()
+        local t, pl = tgt, lp
         while _G.ScannerAutoFarm do
-            pcall(function() if func then func() end end)
-            task.wait(0.1)
+            pcall(function()
+                if isNativeFarm and t then
+                    if t:FindFirstChildOfClass("TouchTransmitter") then
+                        firetouchinterest(pl.Character.HumanoidRootPart, t, 0)
+                        task.wait()
+                        firetouchinterest(pl.Character.HumanoidRootPart, t, 1)
+                    elseif t:FindFirstChildOfClass("ProximityPrompt") then
+                        fireproximityprompt(t:FindFirstChildOfClass("ProximityPrompt"))
+                    end
+                elseif func then
+                    func()
+                end
+            end)
+            task.wait(0.5)
         end
     end)
 end)
@@ -239,7 +261,6 @@ uis.InputBegan:Connect(function(i, g)
     end
 end)
 
--- [ ควบคุมการกดปุ่มแว่นขยายให้เปิดปิดหน้าต่างเฉพาะตอนไม่ได้ลาก ]
 tog.MouseButton1Click:Connect(function()
     if not isDraggingTog then
         fr.Visible = not fr.Visible
