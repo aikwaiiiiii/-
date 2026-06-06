@@ -1,10 +1,13 @@
--- [[ ADVANCED SCANNER V5.5.4 (HYBRID ENGINE & SMART DRAG) ]] --
+-- [[ ADVANCED SCANNER V5.6.2 (SAFE HOOK + PC RESIZABLE + LARGE FONT) ]] --
 local p = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local lp = p.LocalPlayer
 local mouse = lp:GetMouse()
 local mode, tgt, path = "Part", nil, ""
 _G.ScannerAutoFarm = false
+
+local isRecording = false
+local recordedActions = {}
 
 local pg = lp:WaitForChild("PlayerGui")
 pcall(function() if pg:FindFirstChild("MobScan") then pg.MobScan:Destroy() end end)
@@ -16,25 +19,51 @@ local hl = Instance.new("Highlight", pg)
 hl.FillColor, hl.OutlineColor = Color3.fromRGB(0, 255, 150), Color3.new(1, 1, 1)
 
 local tog = Instance.new("TextButton", sg)
-tog.Size, tog.Position = UDim2.new(0, 45, 0, 45), UDim2.new(0, 15, 0.5, -20)
+tog.Size, tog.Position = UDim2.new(0, 50, 0, 50), UDim2.new(0, 15, 0.5, -25)
 tog.BackgroundColor3, tog.Text, tog.ZIndex = Color3.fromRGB(0, 150, 255), "🔍", 9999
+tog.TextSize = 24
 Instance.new("UICorner", tog).CornerRadius = UDim.new(1, 0)
 
 local fr = Instance.new("Frame", sg)
-fr.Size, fr.Position = UDim2.new(0, 450, 0, 380), UDim2.new(0.5, -225, 0.2, 0)
+fr.Size, fr.Position = UDim2.new(0, 480, 0, 420), UDim2.new(0.5, -240, 0.2, 0)
 fr.BackgroundColor3, fr.ClipsDescendants, fr.Visible, fr.ZIndex = Color3.fromRGB(25, 25, 28), true, true, 1
 Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 8)
 
+local resizeGrip = Instance.new("TextButton", fr)
+resizeGrip.Size, resizeGrip.Position = UDim2.new(0, 20, 0, 20), UDim2.new(1, -20, 1, -20)
+resizeGrip.BackgroundTransparency, resizeGrip.Text, resizeGrip.TextColor3, resizeGrip.ZIndex = 1, "↘", Color3.fromRGB(150, 150, 150), 10
+resizeGrip.TextSize = 18
+
+local isResizing, resStartPos, resStartSize = false, nil, nil
+local MIN_SIZE = Vector2.new(480, 420)
+
+resizeGrip.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        isResizing, resStartPos, resStartSize = true, i.Position, fr.AbsoluteSize
+        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then isResizing = false end end)
+    end
+end)
+uis.InputChanged:Connect(function(i)
+    if isResizing and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = i.Position - resStartPos
+        local newW = math.max(MIN_SIZE.X, resStartSize.X + delta.X)
+        local newH = math.max(MIN_SIZE.Y, resStartSize.Y + delta.Y)
+        fr.Size = UDim2.new(0, newW, 0, newH)
+    end
+end)
+
 local tb = Instance.new("Frame", fr)
-tb.Size, tb.BackgroundColor3 = UDim2.new(1, 0, 0, 35), Color3.fromRGB(20, 20, 22)
+tb.Size, tb.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(20, 20, 22)
 
 local tl = Instance.new("TextLabel", tb)
-tl.Size, tl.Position, tl.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner V5.5.4 (Hybrid Engine)"
+tl.Size, tl.Position, tl.Text = UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "⚡ Scanner V5.6.2 (Safe Hook Patch)"
 tl.TextColor3, tl.Font, tl.BackgroundTransparency, tl.TextXAlignment = Color3.new(1, 1, 1), Enum.Font.GothamBold, 1, Enum.TextXAlignment.Left
+tl.TextSize = 16
 
 local cl = Instance.new("TextButton", tb)
-cl.Size, cl.Position = UDim2.new(0, 30, 0, 25), UDim2.new(1, -35, 0, 5)
+cl.Size, cl.Position = UDim2.new(0, 35, 0, 30), UDim2.new(1, -40, 0, 5)
 cl.BackgroundColor3, cl.TextColor3, cl.Text, cl.Font = Color3.fromRGB(200, 50, 50), Color3.new(1, 1, 1), "X", Enum.Font.GothamBold
+cl.TextSize = 14
 Instance.new("UICorner", cl).CornerRadius = UDim.new(0, 6)
 
 local dt, ds, sp
@@ -70,18 +99,18 @@ uis.InputChanged:Connect(function(i)
 end)
 
 local tBar = Instance.new("Frame", fr)
-tBar.Size, tBar.Position, tBar.BackgroundColor3, tBar.BorderSizePixel = UDim2.new(1, 0, 0, 35), UDim2.new(0, 0, 0, 35), Color3.fromRGB(30, 30, 35), 0
+tBar.Size, tBar.Position, tBar.BackgroundColor3, tBar.BorderSizePixel = UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 40), Color3.fromRGB(30, 30, 35), 0
 
 local function mkTab(tx, px)
     local b = Instance.new("TextButton", tBar)
     b.Size, b.Position = UDim2.new(0.33, 0, 1, 0), UDim2.new(px, 0, 0, 0)
-    b.BackgroundTransparency, b.TextColor3, b.Font, b.TextSize, b.Text = 1, Color3.fromRGB(150, 150, 150), Enum.Font.GothamBold, 11, tx
+    b.BackgroundTransparency, b.TextColor3, b.Font, b.TextSize, b.Text = 1, Color3.fromRGB(150, 150, 150), Enum.Font.GothamBold, 14, tx
     return b
 end
-local tb1, tb3, tb4 = mkTab("🔍 SCAN", 0), mkTab("⚙️ CODE", 0.33), mkTab("📡 SPY", 0.66)
+local tb1, tb3, tb4 = mkTab("🔍 SCAN", 0), mkTab("⚙️ RECORDER", 0.33), mkTab("📡 SPY", 0.66)
 
 local pc = Instance.new("Frame", fr)
-pc.Size, pc.Position, pc.BackgroundTransparency = UDim2.new(1, 0, 1, -70), UDim2.new(0, 0, 0, 70), 1
+pc.Size, pc.Position, pc.BackgroundTransparency = UDim2.new(1, 0, 1, -80), UDim2.new(0, 0, 0, 80), 1
 local p1, p3, p4 = Instance.new("Frame", pc), Instance.new("Frame", pc), Instance.new("Frame", pc)
 p1.Size, p1.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
 p3.Size, p3.BackgroundTransparency, p3.Visible = UDim2.new(1, 0, 1, 0), 1, false
@@ -97,120 +126,135 @@ tb1.MouseButton1Click:Connect(function() sw(1) end) tb3.MouseButton1Click:Connec
 
 local function mkBtn(p, tx, px, c, w)
     local b = Instance.new("TextButton", p)
-    b.Size, b.Position = UDim2.new(w or 0.32, 0, 0, 30), UDim2.new(px, 0, 1, -75)
-    b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text = c, Color3.new(1, 1, 1), Enum.Font.GothamBold, 11, tx
+    b.Size, b.Position = UDim2.new(w or 0.32, 0, 0, 35), UDim2.new(px, 0, 1, -85)
+    b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text = c, Color3.new(1, 1, 1), Enum.Font.GothamBold, 13, tx
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     return b
 end
 
 -- [ TAB 1: SCANNER ]
 local is = Instance.new("ScrollingFrame", p1)
-is.Size, is.Position, is.BackgroundTransparency, is.AutomaticCanvasSize = UDim2.new(1, -20, 1, -85), UDim2.new(0, 10, 0, 5), 1, Enum.AutomaticSize.Y
+is.Size, is.Position, is.BackgroundTransparency, is.AutomaticCanvasSize = UDim2.new(1, -20, 1, -95), UDim2.new(0, 10, 0, 5), 1, Enum.AutomaticSize.Y
 local il = Instance.new("TextLabel", is)
 il.Size, il.AutomaticSize, il.BackgroundTransparency = UDim2.new(1, -10, 0, 0), Enum.AutomaticSize.Y, 1
 il.TextColor3, il.Font, il.TextWrapped, il.TextXAlignment, il.RichText = Color3.fromRGB(220, 220, 220), Enum.Font.GothamMedium, true, Enum.TextXAlignment.Left, true
+il.TextSize = 14
 il.Text = "แตะที่วัตถุในเกมเพื่อวิเคราะห์ระบบเชิงลึก..."
 
 local btTp = mkBtn(p1, "Teleport", 0, Color3.fromRGB(40, 160, 180))
 local btMd = mkBtn(p1, "Mode: Part", 0.34, Color3.fromRGB(60, 60, 180))
 local btDs = mkBtn(p1, "Destroy", 0.68, Color3.fromRGB(180, 40, 40))
 
--- [ TAB 3: CODE ]
+-- [ TAB 3: RECORDER ENGINE ]
 local cbx = Instance.new("TextBox", p3)
-cbx.Size, cbx.Position = UDim2.new(1, -20, 1, -130), UDim2.new(0, 10, 0, 5)
-cbx.BackgroundColor3, cbx.TextColor3, cbx.Font, cbx.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 11
+cbx.Size, cbx.Position = UDim2.new(1, -20, 1, -140), UDim2.new(0, 10, 0, 5)
+cbx.BackgroundColor3, cbx.TextColor3, cbx.Font, cbx.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 14
 cbx.TextXAlignment, cbx.TextYAlignment, cbx.TextWrapped, cbx.ClearTextOnFocus, cbx.MultiLine = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, false, true
-cbx.Text = "-- วางโค้ด Remote ที่นี่ แล้วกด RUN เพื่อเริ่ม Auto-Farm"
+cbx.Text = "-- [ MACRO RECORDER MODE ] --\n1. กด RECORD ด้านล่าง\n2. สแกนวัตถุ หรือเปิด SPY เลือก Remote\n3. กด RUN เพื่อเริ่มออโต้"
 Instance.new("UICorner", cbx).CornerRadius = UDim.new(0, 6)
 
-local btG = mkBtn(p3, "⚙️ GENERATE SCRIPT", 0.02, Color3.fromRGB(255, 150, 0), 0.63) btG.Position = UDim2.new(0.02, 0, 1, -115)
-local btC = mkBtn(p3, "📋 COPY", 0.67, Color3.fromRGB(60, 150, 60), 0.3) btC.Position = UDim2.new(0.67, 0, 1, -115)
-local btR = mkBtn(p3, "▶️ RUN (EXECUTE)", 0.02, Color3.fromRGB(0, 200, 100), 0.63) btR.Position = UDim2.new(0.02, 0, 1, -75)
-local btS = mkBtn(p3, "🛑 STOP", 0.67, Color3.fromRGB(200, 50, 50), 0.3) btS.Position = UDim2.new(0.67, 0, 1, -75)
+local btRec = mkBtn(p3, "🔴 RECORD", 0.02, Color3.fromRGB(200, 50, 50), 0.3) btRec.Position = UDim2.new(0.02, 0, 1, -125)
+local btClear = mkBtn(p3, "🗑️ CLEAR", 0.35, Color3.fromRGB(80, 80, 85), 0.3) btClear.Position = UDim2.new(0.35, 0, 1, -125)
+local btC = mkBtn(p3, "📋 COPY CODE", 0.68, Color3.fromRGB(60, 150, 60), 0.3) btC.Position = UDim2.new(0.68, 0, 1, -125)
 
--- กลับไปใช้รูปแบบข้อความ V5.2 เพื่อให้คุ้นเคย
-btG.MouseButton1Click:Connect(function()
-    if not tgt then cbx.Text="⚠️ สแกนวัตถุก่อน!" return end
-    local c=""
-    if tgt:FindFirstChildOfClass("TouchTransmitter") then
-        c="-- [ AUTO-FARM SCRIPT ] --\nlocal targetPath = "..path.."\nlocal p = game.Players.LocalPlayer\nwhile task.wait(0.5) do\n pcall(function()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 0)\n  task.wait()\n  firetouchinterest(p.Character.HumanoidRootPart, targetPath, 1)\n end)\nend"
-    elseif tgt:FindFirstChildOfClass("ProximityPrompt") then
-        c="-- [ AUTO-FARM SCRIPT ] --\nlocal targetPath = "..path.."\nwhile task.wait(0.5) do\n pcall(function()\n  fireproximityprompt(targetPath:FindFirstChildOfClass('ProximityPrompt'))\n end)\nend"
+local btR = mkBtn(p3, "▶️ RUN MACRO", 0.02, Color3.fromRGB(0, 200, 100), 0.63) btR.Position = UDim2.new(0.02, 0, 1, -85)
+local btS = mkBtn(p3, "🛑 STOP", 0.67, Color3.fromRGB(150, 50, 50), 0.3) btS.Position = UDim2.new(0.67, 0, 1, -85)
+
+btRec.MouseButton1Click:Connect(function()
+    isRecording = not isRecording
+    if isRecording then
+        btRec.Text, btRec.BackgroundColor3 = "⏹️ RECORDING", Color3.fromRGB(255, 150, 0)
+        cbx.Text = "-- [ RECORDING STARTED ] --\nกำลังจับสัญญาณ..."
     else
-        c="-- [ OBJECT PATH ]\n-- วัตถุนี้ไม่ใช่ปุ่มกด\n-- ให้นำโค้ดจากหน้า 📡 SPY มาวางที่นี่เพื่อรัน\n-- Path: "..path
+        btRec.Text, btRec.BackgroundColor3 = "🔴 RECORD", Color3.fromRGB(200, 50, 50)
+        if #recordedActions > 0 then
+            local scriptStr = "-- [ MACRO REPLAY SCRIPT ] --\nwhile _G.ScannerAutoFarm do\n"
+            for _, act in pairs(recordedActions) do
+                scriptStr = scriptStr .. "  pcall(function()\n" .. act .. "  end)\n  task.wait(0.1)\n"
+            end
+            scriptStr = scriptStr .. "  task.wait(0.1)\nend"
+            cbx.Text = scriptStr
+        else
+            cbx.Text = "-- ไม่พบข้อมูลคำสั่งที่บันทึกไว้ --"
+        end
     end
-    cbx.Text=c
+end)
+
+btClear.MouseButton1Click:Connect(function()
+    recordedActions = {}
+    cbx.Text = "-- ล้างข้อมูลคิวเรียบร้อย --"
 end)
 
 btC.MouseButton1Click:Connect(function() if setclipboard then setclipboard(cbx.Text) end end)
 
--- Hybrid Run Logic (ฉลาดและเสถียรที่สุด)
 btR.MouseButton1Click:Connect(function()
-    if cbx.Text == "" then return end
+    if #recordedActions == 0 then cbx.Text = "⚠️ ไม่มีคำสั่งในคิว! เรคคอร์ดก่อน" return end
     _G.ScannerAutoFarm = true
-    btR.Text, btR.BackgroundColor3 = "🔄 RUNNING...", Color3.fromRGB(150, 150, 50)
-    
-    local txt = cbx.Text
-    local isNativeFarm = string.find(txt, "AUTO%-FARM SCRIPT")
-    local func = nil
-    
-    if not isNativeFarm then
-        pcall(function() func = loadstring(txt) end)
-    end
+    btR.Text, btR.BackgroundColor3 = "🔄 MACRO ACTIVE", Color3.fromRGB(150, 150, 50)
     
     task.spawn(function()
-        local t, pl = tgt, lp
         while _G.ScannerAutoFarm do
-            pcall(function()
-                if isNativeFarm and t then
-                    if t:FindFirstChildOfClass("TouchTransmitter") then
-                        firetouchinterest(pl.Character.HumanoidRootPart, t, 0)
-                        task.wait()
-                        firetouchinterest(pl.Character.HumanoidRootPart, t, 1)
-                    elseif t:FindFirstChildOfClass("ProximityPrompt") then
-                        fireproximityprompt(t:FindFirstChildOfClass("ProximityPrompt"))
-                    end
-                elseif func then
-                    func()
-                end
-            end)
-            task.wait(0.5)
+            for _, code in pairs(recordedActions) do
+                if not _G.ScannerAutoFarm then break end
+                pcall(function()
+                    local f = loadstring(code)
+                    if f then f() end
+                end)
+            end
+            task.wait(0.1)
         end
     end)
 end)
 
-btS.MouseButton1Click:Connect(function() _G.ScannerAutoFarm = false btR.Text, btR.BackgroundColor3 = "▶️ RUN (EXECUTE)", Color3.fromRGB(0, 200, 100) end)
+btS.MouseButton1Click:Connect(function() _G.ScannerAutoFarm = false btR.Text, btR.BackgroundColor3 = "▶️ RUN MACRO", Color3.fromRGB(0, 200, 100) end)
 
 -- [ TAB 4: SPY ]
 local rls = Instance.new("ScrollingFrame", p4)
-rls.Size, rls.Position, rls.BackgroundColor3, rls.ScrollBarThickness = UDim2.new(0.4, -5, 1, -40), UDim2.new(0, 5, 0, 5), Color3.fromRGB(20, 20, 25), 4
+rls.Size, rls.Position, rls.BackgroundColor3, rls.ScrollBarThickness = UDim2.new(0.4, -5, 1, -50), UDim2.new(0, 5, 0, 5), Color3.fromRGB(20, 20, 25), 4
 Instance.new("UICorner", rls).CornerRadius = UDim.new(0, 4)
 
 local scb = Instance.new("TextBox", p4)
-scb.Size, scb.Position = UDim2.new(0.6, -15, 1, -40), UDim2.new(0.4, 10, 0, 5)
-scb.BackgroundColor3, scb.TextColor3, scb.Font, scb.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 11
+scb.Size, scb.Position = UDim2.new(0.6, -15, 1, -50), UDim2.new(0.4, 10, 0, 5)
+scb.BackgroundColor3, scb.TextColor3, scb.Font, scb.TextSize = Color3.fromRGB(15, 15, 18), Color3.fromRGB(150, 255, 150), Enum.Font.Code, 14
 scb.TextXAlignment, scb.TextYAlignment, scb.TextWrapped, scb.ClearTextOnFocus = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top, true, false
 scb.Text = "-- ระบบ SPY พร้อมใช้งาน"
 Instance.new("UICorner", scb).CornerRadius = UDim.new(0, 4)
 
-local msb = mkBtn(p4, "🔍 SCAN", 0.01, Color3.fromRGB(180, 60, 60), 0.38) msb.Position = UDim2.new(0.01, 0, 1, -30)
-local csb = mkBtn(p4, "📋 COPY", 0.42, Color3.fromRGB(60, 150, 60), 0.56) csb.Position = UDim2.new(0.42, 0, 1, -30)
+local msb = mkBtn(p4, "🔍 SCAN", 0.01, Color3.fromRGB(180, 60, 60), 0.38) msb.Position = UDim2.new(0.01, 0, 1, -40)
+local csb = mkBtn(p4, "📋 ADD TO MACRO", 0.42, Color3.fromRGB(60, 150, 60), 0.56) csb.Position = UDim2.new(0.42, 0, 1, -40)
 
+local currentSelectedRemoteCode = ""
 local rc = 0
 local function addR(o)
     local b = Instance.new("TextButton", rls)
-    b.Size, b.Position = UDim2.new(1, -10, 0, 25), UDim2.new(0, 5, 0, rc * 30)
+    b.Size, b.Position = UDim2.new(1, -10, 0, 30), UDim2.new(0, 5, 0, rc * 35)
     b.BackgroundColor3 = o:IsA("RemoteEvent") and Color3.fromRGB(150, 50, 80) or Color3.fromRGB(50, 80, 150)
-    b.TextColor3, b.Font, b.TextSize, b.TextTruncate, b.Text = Color3.new(1, 1, 1), Enum.Font.GothamMedium, 10, Enum.TextTruncate.AtEnd, "⚡ " .. o.Name
+    b.TextColor3, b.Font, b.TextSize, b.TextTruncate, b.Text = Color3.new(1, 1, 1), Enum.Font.GothamMedium, 12, Enum.TextTruncate.AtEnd, "⚡ " .. o.Name
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
     b.MouseButton1Click:Connect(function()
         local p = o:GetFullName()
-        scb.Text = o:IsA("RemoteEvent") and "local a={[1]=1}\ngame." .. p .. ":FireServer(unpack(a))" or "local a={[1]=1}\nprint(game." .. p .. ":InvokeServer(unpack(a)))"
+        if o:IsA("RemoteEvent") then
+            currentSelectedRemoteCode = "game." .. p .. ":FireServer(1)"
+            scb.Text = "-- [ Remote Selected ] --\n" .. currentSelectedRemoteCode
+        else
+            currentSelectedRemoteCode = "game." .. p .. ":InvokeServer(1)"
+            scb.Text = "-- [ Remote Selected ] --\n" .. currentSelectedRemoteCode
+        end
     end)
     rc = rc + 1
-    rls.CanvasSize = UDim2.new(0, 0, 0, rc * 30)
+    rls.CanvasSize = UDim2.new(0, 0, 0, rc * 35)
 end
 
+csb.MouseButton1Click:Connect(function()
+    if currentSelectedRemoteCode ~= "" then
+        table.insert(recordedActions, currentSelectedRemoteCode)
+        csb.Text = "✅ ADDED!"
+        task.wait(0.8)
+        csb.Text = "📋 ADD TO MACRO"
+    end
+end)
+
+-- 🔥 แก้บัค Hook Namecall ทับซ้อนเกม 🔥
 local lR = {}
 task.spawn(function()
     pcall(function()
@@ -218,8 +262,18 @@ task.spawn(function()
             local oldNamecall
             oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(s, ...)
                 local m = getnamecallmethod()
-                if not checkcaller() and m == "FireServer" and s:IsA("RemoteEvent") then
-                    if not lR[s] then lR[s] = true task.spawn(function() addR(s) end) end
+                if not checkcaller() then
+                    if m == "FireServer" and typeof(s) == "Instance" and s.ClassName == "RemoteEvent" then
+                        if not lR[s] then 
+                            lR[s] = true 
+                            task.defer(function() addR(s) end) 
+                        end
+                    elseif m == "InvokeServer" and typeof(s) == "Instance" and s.ClassName == "RemoteFunction" then
+                        if not lR[s] then 
+                            lR[s] = true 
+                            task.defer(function() addR(s) end) 
+                        end
+                    end
                 end
                 return oldNamecall(s, ...)
             end))
@@ -233,7 +287,6 @@ msb.MouseButton1Click:Connect(function()
     for _, o in pairs(game:GetDescendants()) do if o:IsA("RemoteEvent") or o:IsA("RemoteFunction") then addR(o) end end
     msb.Text = "🔍 SCAN"
 end)
-csb.MouseButton1Click:Connect(function() if setclipboard then setclipboard(scb.Text) end end)
 
 local function gp(o)
     local s, r = pcall(function()
@@ -254,8 +307,19 @@ uis.InputBegan:Connect(function(i, g)
                 while c and c ~= workspace and c ~= game do if c:IsA("Model") then o = c; break end c = c.Parent end
             end
             tgt = o; path = gp(o); hl.Adornee = o
-            local tInfo = "<font color='#00FFAA'><b>[ ข้อมูลโครงสร้างหลัก ]</b></font>\nชื่อ: " .. o.Name .. "\nประเภท: " .. o.ClassName .. "\n\n<font color='#AADDFF'>" .. path .. "</font>\n"
-            if o:IsA("BasePart") then tInfo = tInfo .. "\n<font color='#00FFAA'><b>[ กายภาพ ]</b></font>\nพิกัด: " .. string.format("%.1f, %.1f, %.1f", o.Position.X, o.Position.Y, o.Position.Z) end
+            
+            if isRecording then
+                if o:FindFirstChildOfClass("TouchTransmitter") then
+                    local cmd = "firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, " .. path .. ", 0) task.wait() firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, " .. path .. ", 1)"
+                    table.insert(recordedActions, cmd)
+                elseif o:FindFirstChildOfClass("ProximityPrompt") then
+                    local cmd = "fireproximityprompt(" .. path .. ":FindFirstChildOfClass('ProximityPrompt'))"
+                    table.insert(recordedActions, cmd)
+                end
+            end
+            
+            local tInfo = "<font size='16' color='#00FFAA'><b>[ ข้อมูลโครงสร้างหลัก ]</b></font>\nชื่อ: " .. o.Name .. "\nประเภท: " .. o.ClassName .. "\n\n<font color='#AADDFF'>" .. path .. "</font>\n"
+            if o:IsA("BasePart") then tInfo = tInfo .. "\n<font size='16' color='#00FFAA'><b>[ กายภาพ ]</b></font>\nพิกัด: " .. string.format("%.1f, %.1f, %.1f", o.Position.X, o.Position.Y, o.Position.Z) end
             il.Text = tInfo
         end
     end
