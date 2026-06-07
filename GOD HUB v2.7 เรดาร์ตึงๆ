@@ -1,11 +1,12 @@
--- [[ 👑 THE GOD HUB v2.7 (Force-Pull Magnet & Full DEX Explorer) ]] --
+-- [[ 👑 THE GOD HUB v2.9 (Ultimate DEX Bridge & Inspector) ]] --
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local StarterGui = game:GetService("StarterGui")
 local lp = Players.LocalPlayer
+local mouse = lp:GetMouse()
 
--- 🧹 1. ล้างหน้าต่าง UI เก่าให้สะอาดหมดจด ป้องกันการบั๊กซ้อนทับ
+-- 🧹 1. ล้างหน้าต่าง UI เก่า
 local uiName = "GodHubModularUI"
 pcall(function() if CoreGui:FindFirstChild(uiName) then CoreGui[uiName]:Destroy() end end)
 
@@ -16,26 +17,23 @@ pcall(function() screenGui.Parent = CoreGui end)
 if not screenGui.Parent then screenGui.Parent = lp:WaitForChild("PlayerGui") end
 
 -- ==========================================
--- 🪟 2. โครงสร้างหน้าต่างหลัก (ปรับความสูงเป็น 310 ให้พอดีกับทุกปุ่ม)
+-- 🪟 2. โครงสร้างหน้าต่างหลัก
 -- ==========================================
 local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Size, mainFrame.Position = UDim2.new(0, 330, 0, 310), UDim2.new(0.5, -165, 0.5, -155)
+mainFrame.Size, mainFrame.Position = UDim2.new(0, 340, 0, 310), UDim2.new(0.5, -170, 0.5, -155)
 mainFrame.BackgroundColor3, mainFrame.Active, mainFrame.Draggable = Color3.fromRGB(20, 20, 25), true, true
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
 
--- แถบหัวเรื่อง (Header)
 local titleLabel = Instance.new("TextLabel", mainFrame)
 titleLabel.Size, titleLabel.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(35, 35, 45)
-titleLabel.Text, titleLabel.TextColor3, titleLabel.Font, titleLabel.TextSize = "👑 GOD HUB v2.7 (Force-Pull)", Color3.fromRGB(255, 215, 0), Enum.Font.GothamBold, 14
+titleLabel.Text, titleLabel.TextColor3, titleLabel.Font, titleLabel.TextSize = "👑 GOD HUB v2.9 (Ultimate)", Color3.fromRGB(255, 215, 0), Enum.Font.GothamBold, 14
 Instance.new("UICorner", titleLabel).CornerRadius = UDim.new(0, 8)
 
--- ปุ่มปิด (X)
 local closeBtn = Instance.new("TextButton", titleLabel)
 closeBtn.Size, closeBtn.Position, closeBtn.BackgroundTransparency = UDim2.new(0, 40, 0, 40), UDim2.new(1, -40, 0, 0), 1
 closeBtn.Text, closeBtn.TextColor3, closeBtn.Font, closeBtn.TextSize = "X", Color3.fromRGB(255, 100, 100), Enum.Font.GothamBold, 16
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
--- ระบบพับจอ (Tiger Button)
 local tigerBtn = Instance.new("TextButton", screenGui)
 tigerBtn.Size, tigerBtn.Position = UDim2.new(0, 50, 0, 50), UDim2.new(0.1, 0, 0.2, 0)
 tigerBtn.BackgroundColor3, tigerBtn.Visible, tigerBtn.Active, tigerBtn.Draggable = Color3.fromRGB(20, 20, 25), false, true, true
@@ -44,31 +42,11 @@ Instance.new("UICorner", tigerBtn).CornerRadius = UDim.new(0, 12)
 Instance.new("UIStroke", tigerBtn).Color = Color3.fromRGB(255, 120, 0)
 Instance.new("UIStroke", tigerBtn).Thickness = 2
 
--- ปุ่มย่อจอ (-)
 local miniBtn = Instance.new("TextButton", titleLabel)
 miniBtn.Size, miniBtn.Position, miniBtn.BackgroundTransparency = UDim2.new(0, 40, 0, 40), UDim2.new(1, -80, 0, 0), 1
 miniBtn.Text, miniBtn.TextColor3, miniBtn.Font, miniBtn.TextSize = "—", Color3.fromRGB(200, 200, 200), Enum.Font.GothamBold, 16
 miniBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false tigerBtn.Visible = true end)
 tigerBtn.MouseButton1Click:Connect(function() tigerBtn.Visible = false mainFrame.Visible = true end)
-
--- ==========================================
--- ⌨️ 3. กล่องข้อความ (ช่องใส่ชื่อเป้าหมาย)
--- ==========================================
-local targetInput = Instance.new("TextBox", mainFrame)
-targetInput.Size, targetInput.Position = UDim2.new(1, -40, 0, 35), UDim2.new(0, 20, 0, 150)
-targetInput.BackgroundColor3, targetInput.TextColor3 = Color3.fromRGB(30, 30, 35), Color3.fromRGB(255, 255, 255)
-targetInput.PlaceholderText = "🔍 พิมพ์ชื่อเป้าหมาย (เช่น Loot,Chest,Ore)"
-targetInput.Font, targetInput.TextSize = Enum.Font.GothamMedium, 12
-targetInput.Text = "loot" -- ค่าเริ่มต้น
-targetInput.ClearTextOnFocus = false
-Instance.new("UICorner", targetInput).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", targetInput).Color = Color3.fromRGB(100, 100, 100)
-
--- ==========================================
--- 🧠 4. สมองกล (แยกประสาท 2 ฝั่งชัดเจนเพื่อความเสถียร)
--- ==========================================
-local isFilterOn, isRadarOn, isAutoLoop, isTargetFarm = false, false, false, false
-local junkClasses = {"ParticleEmitter", "Decal", "Texture", "Trail", "Sparkles", "Fire", "Smoke", "Atmosphere"}
 
 local function notify(msg)
     pcall(function() StarterGui:SetCore("SendNotification", {Title = "👑 GOD HUB", Text = msg, Duration = 2.5}) end)
@@ -76,13 +54,48 @@ end
 
 local function getRoot() return lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") end
 
+-- ==========================================
+-- ⌨️ 3. กล่องข้อความ + 👆 ปุ่มจิ้ม + 🔗 ปุ่ม Dex Sync
+-- ==========================================
+local targetInput = Instance.new("TextBox", mainFrame)
+targetInput.Size, targetInput.Position = UDim2.new(1, -120, 0, 35), UDim2.new(0, 20, 0, 150)
+targetInput.BackgroundColor3, targetInput.TextColor3 = Color3.fromRGB(30, 30, 35), Color3.fromRGB(255, 255, 255)
+targetInput.PlaceholderText = "🔍 พิมพ์ชื่อ / จิ้ม / ซิงค์ DEX"
+targetInput.Font, targetInput.TextSize = Enum.Font.GothamMedium, 11
+targetInput.Text = "loot"
+targetInput.ClearTextOnFocus = false
+Instance.new("UICorner", targetInput).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", targetInput).Color = Color3.fromRGB(100, 100, 100)
+
+-- 👆 ปุ่มตัวสแกนหน้าจอ (Visual Selector)
+local pickerBtn = Instance.new("TextButton", mainFrame)
+pickerBtn.Size, pickerBtn.Position = UDim2.new(0, 40, 0, 35), UDim2.new(1, -90, 0, 150)
+pickerBtn.BackgroundColor3, pickerBtn.Text, pickerBtn.TextColor3 = Color3.fromRGB(45, 45, 55), "👆", Color3.new(1, 1, 1)
+pickerBtn.Font, pickerBtn.TextSize = Enum.Font.GothamBold, 18
+Instance.new("UICorner", pickerBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", pickerBtn).Color = Color3.fromRGB(150, 150, 150)
+
+-- 🔗 ปุ่มดึงชื่อจาก DEX (DEX Sync Bridge)
+local syncBtn = Instance.new("TextButton", mainFrame)
+syncBtn.Size, syncBtn.Position = UDim2.new(0, 40, 0, 35), UDim2.new(1, -45, 0, 150)
+syncBtn.BackgroundColor3, syncBtn.Text, syncBtn.TextColor3 = Color3.fromRGB(45, 45, 55), "🔗", Color3.new(1, 1, 1)
+syncBtn.Font, syncBtn.TextSize = Enum.Font.GothamBold, 18
+Instance.new("UICorner", syncBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", syncBtn).Color = Color3.fromRGB(150, 50, 255)
+
+-- ==========================================
+-- 🧠 4. ระบบอัจฉริยะเบื้องหลัง
+-- ==========================================
+local isFilterOn, isRadarOn, isAutoLoop, isTargetFarm, isPicking, isSyncing = false, false, false, false, false, false
+local pickerConnection = nil
+local junkClasses = {"ParticleEmitter", "Decal", "Texture", "Trail", "Sparkles", "Fire", "Smoke", "Atmosphere"}
+
 local function applyLockOnHighlight(obj)
-    if not isRadarOn or not obj then return end
+    if not obj then return end
     local targetPart = obj
     if obj:IsA("ProximityPrompt") or obj:IsA("TouchTransmitter") then targetPart = obj.Parent end
     if not targetPart or not (targetPart:IsA("BasePart") or targetPart:IsA("Model")) then return end
     if targetPart:FindFirstChild("GodHighlight") then return end
-    
     pcall(function()
         local hl = Instance.new("Highlight", targetPart)
         hl.Name, hl.FillColor, hl.OutlineColor = "GodHighlight", Color3.fromRGB(0, 255, 100), Color3.fromRGB(255, 255, 255)
@@ -91,7 +104,60 @@ local function applyLockOnHighlight(obj)
     end)
 end
 
--- 🟢 สมองฝั่งซ้าย: v2.2 ดั้งเดิม (กวาดหมด)
+-- ระบบ 👆 (จิ้มหน้าจอ)
+pickerBtn.MouseButton1Click:Connect(function()
+    isPicking = not isPicking
+    if isPicking then
+        pickerBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        notify("👆 แตะเป้าหมายบนหน้าจอเพื่อดึงชื่อ!")
+        pickerConnection = mouse.Button1Down:Connect(function()
+            if isPicking and mouse.Target then
+                targetInput.Text = mouse.Target.Name
+                applyLockOnHighlight(mouse.Target)
+                isPicking = false
+                pickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+                if pickerConnection then pickerConnection:Disconnect() end
+            end
+        end)
+    else
+        pickerBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        if pickerConnection then pickerConnection:Disconnect() end
+    end
+end)
+
+-- ระบบ 🔗 (DEX Sync Sniffer)
+syncBtn.MouseButton1Click:Connect(function()
+    isSyncing = not isSyncing
+    if isSyncing then
+        syncBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 255)
+        notify("🔗 DEX Sync: เปิดใช้งาน! จิ้มชื่อใน DEX ได้เลย")
+        task.spawn(function()
+            local lastTarget = nil
+            while isSyncing do
+                -- ดมกลิ่นหา SelectionBox ที่ DEX สร้างขึ้น
+                local foundAdornee = nil
+                for _, obj in pairs(CoreGui:GetDescendants()) do
+                    if obj:IsA("SelectionBox") and obj.Adornee then
+                        foundAdornee = obj.Adornee
+                        break
+                    end
+                end
+                -- ถ้าพบว่า DEX กำลังคลุมเป้าหมายใหม่ ให้ดึงชื่อมาใส่ช่องข้อความทันที
+                if foundAdornee and foundAdornee ~= lastTarget then
+                    lastTarget = foundAdornee
+                    targetInput.Text = foundAdornee.Name
+                    applyLockOnHighlight(foundAdornee)
+                end
+                task.wait(0.3) -- เช็คทุกๆ 0.3 วินาที (ไม่กินสเปค)
+            end
+        end)
+    else
+        syncBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        notify("❌ ปิด DEX Sync")
+    end
+end)
+
+-- โหมดดั้งเดิม
 local function isTarget_v22(obj)
     if not obj then return false end
     if obj:IsA("ProximityPrompt") or obj:IsA("TouchTransmitter") then return true end
@@ -107,24 +173,22 @@ end
 local function collectItem_v22(obj)
     local root = getRoot()
     if not root then return end
-    task.spawn(applyLockOnHighlight, obj)
-    
+    if isRadarOn then task.spawn(applyLockOnHighlight, obj) end
     if obj:IsA("ProximityPrompt") then pcall(function() fireproximityprompt(obj) end)
     elseif obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then
         pcall(function() firetouchinterest(root, obj.Parent, 0) task.wait(0.01) firetouchinterest(root, obj.Parent, 1) end)
     else
-        local touchPart = obj:IsA("BasePart") and obj or (obj:IsA("Model") and obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart"))
-        if touchPart then pcall(function() firetouchinterest(root, touchPart, 0) task.wait(0.01) firetouchinterest(root, touchPart, 1) end) end
+        local tp = obj:IsA("BasePart") and obj or (obj:IsA("Model") and obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart"))
+        if tp then pcall(function() firetouchinterest(root, tp, 0) task.wait(0.01) firetouchinterest(root, tp, 1) end) end
     end
 end
 
--- 🔴 สมองฝั่งขวา: โหมดแม่เหล็ก Force-Pull (ระบบกระชากเข้าตัว)
+-- โหมดแม่เหล็ก Force-Pull
 local function isCustomTarget(obj)
     if not obj or not obj.Name then return false end
     local text = string.lower(targetInput.Text)
     if text == "" then return false end
     local name = string.lower(obj.Name)
-    
     for word in string.gmatch(text, "([^,]+)") do
         word = word:match("^%s*(.-)%s*$")
         if word ~= "" and string.find(name, word) then
@@ -137,18 +201,16 @@ end
 local function collectItem_Target(obj)
     local root = getRoot()
     if not root then return end
-    task.spawn(applyLockOnHighlight, obj)
-    
+    if isRadarOn then task.spawn(applyLockOnHighlight, obj) end
     pcall(function()
-        local targetPart = nil
-        if obj:IsA("BasePart") then targetPart = obj
-        elseif obj:IsA("Model") then targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-        elseif obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then targetPart = obj.Parent
+        local tp = nil
+        if obj:IsA("BasePart") then tp = obj
+        elseif obj:IsA("Model") then tp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+        elseif obj:IsA("TouchTransmitter") and obj.Parent and obj.Parent:IsA("BasePart") then tp = obj.Parent
         end
-        
-        if targetPart then
-            targetPart.CFrame = root.CFrame -- แม่เหล็กวาร์ปแร่!
-            firetouchinterest(root, targetPart, 0) task.wait(0.01) firetouchinterest(root, targetPart, 1)
+        if tp then
+            tp.CFrame = root.CFrame 
+            firetouchinterest(root, tp, 0) task.wait(0.01) firetouchinterest(root, tp, 1)
         elseif obj:IsA("ProximityPrompt") then
             fireproximityprompt(obj)
         end
@@ -156,7 +218,7 @@ local function collectItem_Target(obj)
 end
 
 -- ==========================================
--- 🔌 5. จัดวางปุ่ม UI หลัก
+-- 🔌 5. ปุ่มเปิด-ปิดระบบพื้นฐาน (แถวบนสุดเหมือน v2.3)
 -- ==========================================
 local function createFullBtn(yPos, text, activeColor, callback)
     local btn = Instance.new("TextButton", mainFrame)
@@ -193,8 +255,10 @@ createFullBtn(105, "📡 2. Live Radar", Color3.fromRGB(255, 150, 0), function(s
     end
 end)
 
--- แถว 3 ปุ่มประจัญบาน (Y = 195)
-local btnW = 92 
+-- ==========================================
+-- ⚖️ 6. แถว 3 ปุ่มประจัญบาน
+-- ==========================================
+local btnW = 95 
 local loopBtn = Instance.new("TextButton", mainFrame)
 loopBtn.Size, loopBtn.Position = UDim2.new(0, btnW, 0, 35), UDim2.new(0, 20, 0, 195)
 loopBtn.BackgroundColor3, loopBtn.Text, loopBtn.TextColor3, loopBtn.Font, loopBtn.TextSize = Color3.fromRGB(45, 45, 55), "⚡ Auto-Loop", Color3.fromRGB(200, 200, 200), Enum.Font.GothamMedium, 11
@@ -204,7 +268,6 @@ loopBtn.MouseButton1Click:Connect(function()
     isAutoLoop = not isAutoLoop
     if isAutoLoop then
         loopBtn.BackgroundColor3, loopBtn.TextColor3 = Color3.fromRGB(0, 200, 100), Color3.new(1,1,1)
-        notify("⚡ Auto-Loop: รันแกน v2.2 ดั้งเดิม!")
         task.spawn(function()
             while isAutoLoop do
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -229,7 +292,6 @@ targetBtn.MouseButton1Click:Connect(function()
     isTargetFarm = not isTargetFarm
     if isTargetFarm then
         targetBtn.BackgroundColor3, targetBtn.TextColor3 = Color3.fromRGB(255, 50, 50), Color3.new(1,1,1)
-        notify("🎯 แม่เหล็กทำงาน: ลาก [" .. targetInput.Text .. "] เข้าตัว!")
         task.spawn(function()
             while isTargetFarm do
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -250,7 +312,6 @@ sweepBtn.BackgroundColor3, sweepBtn.Text, sweepBtn.TextColor3, sweepBtn.Font, sw
 Instance.new("UICorner", sweepBtn).CornerRadius = UDim.new(0, 6)
 
 sweepBtn.MouseButton1Click:Connect(function()
-    notify("🧲 กวาดลาน 1 รอบ!")
     task.spawn(function()
         for _, obj in pairs(Workspace:GetDescendants()) do
             if isCustomTarget(obj) then collectItem_Target(obj)
@@ -260,7 +321,7 @@ sweepBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 🚀 6. ปุ่มรัน DEX EXPLORER (หัวใจสำคัญที่กลับมาแล้ว!)
+-- 🚀 7. ปุ่มรัน DEX EXPLORER
 -- ==========================================
 local dexBtn = Instance.new("TextButton", mainFrame)
 dexBtn.Size, dexBtn.Position = UDim2.new(1, -40, 0, 45), UDim2.new(0, 20, 0, 245)
@@ -271,13 +332,12 @@ Instance.new("UICorner", dexBtn).CornerRadius = UDim.new(0, 6)
 dexBtn.MouseButton1Click:Connect(function()
     notify("🚀 กำลังโหลด DEX Explorer...")
     pcall(function()
-        -- ลิงก์สคริปต์โหลด Dark Dex v3 ของแท้
         loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))()
     end)
 end)
 
 -- ==========================================
--- 🦅 7. ระบบสไนเปอร์ (ซุ่มยิงแร่ที่เพิ่งเกิดใหม่)
+-- 🦅 8. ระบบดักจับแร่เกิดใหม่ (Real-Time Watcher)
 -- ==========================================
 Workspace.DescendantAdded:Connect(function(newObj)
     task.wait(0.05)
@@ -287,5 +347,3 @@ Workspace.DescendantAdded:Connect(function(newObj)
     if isAutoLoop and isTarget_v22(newObj) then collectItem_v22(newObj) end
     if isTargetFarm and isCustomTarget(newObj) then collectItem_Target(newObj) end
 end)
-
-notify("✅ ยินดีต้อนรับสู่ GOD HUB v2.7!")
