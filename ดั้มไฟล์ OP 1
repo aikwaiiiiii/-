@@ -1,0 +1,417 @@
+-- [[ 🐯 TIGER DUMPER PRO v1.0 - Mobile Edition 🐾 ]]
+-- สำหรับศึกษาและพัฒนาสคริปต์เท่านั้น
+-- รองรับ: Remote Scanner | Remote Spy | SaveInstance | Script Explorer
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local rs = game:GetService("ReplicatedStorage")
+local lp = game:GetService("Players").LocalPlayer
+
+-- ==================== MOBILE FLOATING BUTTON ====================
+pcall(function()
+   if game.CoreGui:FindFirstChild("TigerDumperToggle") then
+       game.CoreGui.TigerDumperToggle:Destroy()
+   end
+   local sg = Instance.new("ScreenGui")
+   sg.Name = "TigerDumperToggle"
+   sg.ResetOnSpawn = false
+   sg.Parent = game.CoreGui
+
+   local btn = Instance.new("TextButton")
+   btn.Size = UDim2.new(0, 50, 0, 50)
+   btn.Position = UDim2.new(0, 15, 0.5, -25)
+   btn.Text = "🕵️"
+   btn.TextSize = 24
+   btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+   btn.TextColor3 = Color3.fromRGB(0, 255, 150)
+   btn.BorderSizePixel = 0
+   btn.Parent = sg
+
+   local corner = Instance.new("UICorner")
+   corner.CornerRadius = UDim.new(1, 0)
+   corner.Parent = btn
+
+   local stroke = Instance.new("UIStroke")
+   stroke.Color = Color3.fromRGB(0, 255, 150)
+   stroke.Thickness = 2
+   stroke.Parent = btn
+
+   btn.MouseButton1Click:Connect(function()
+       for _, gui in ipairs(game.CoreGui:GetChildren()) do
+           if gui:IsA("ScreenGui") and gui:FindFirstChild("Main") and gui.Main:FindFirstChild("Topbar") then
+               gui.Enabled = not gui.Enabled
+               return
+           end
+       end
+   end)
+end)
+
+-- ==================== CONFIG ====================
+local DumperConfig = {
+   spyEnabled = false,
+   logToFile = true,
+   maxLogs = 300,
+   hookInstalled = false
+}
+
+local remoteLogs = {}
+local scriptList = {}
+
+-- ==================== UTILITIES ====================
+local function getRemotePath(obj)
+   local path = obj.Name
+   local parent = obj.Parent
+   while parent and parent ~= game do
+       path = parent.Name .. "." .. path
+       parent = parent.Parent
+   end
+   return path
+end
+
+local function formatArgs(args)
+   local parts = {}
+   for i, v in ipairs(args) do
+       local t = typeof(v)
+       if t == "Instance" then
+           parts[i] = string.format("%s(%s)", t, v.Name)
+       elseif t == "table" then
+           parts[i] = string.format("table[%d]", #v)
+       elseif t == "string" then
+           local s = v:gsub("\n", "\\n"):sub(1, 40)
+           parts[i] = '"' .. s .. '"'
+       elseif t == "number" then
+           parts[i] = string.format("%.3f", v)
+       else
+           parts[i] = tostring(v)
+       end
+   end
+   return table.concat(parts, ", ")
+end
+
+local function safeWriteFile(name, content)
+   if not writefile then return false end
+   pcall(function()
+       if not isfolder("TigerDumper") then
+           makefolder("TigerDumper")
+       end
+       writefile("TigerDumper/" .. name, content)
+   end)
+   return true
+end
+
+-- ==================== REMOTE SCANNER ====================
+local function scanAllRemotes()
+   local found = {}
+   local function scan(parent)
+       for _, obj in ipairs(parent:GetDescendants()) do
+           if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("UnreliableRemoteEvent") then
+               table.insert(found, {
+                   Name = obj.Name,
+                   Class = obj.ClassName,
+                   Path = getRemotePath(obj),
+                   ParentName = obj.Parent and obj.Parent.Name or "nil"
+               })
+           end
+       end
+   end
+   scan(rs)
+   scan(workspace)
+   return found
+end
+
+-- ==================== REMOTE SPY (HOOK) ====================
+local function installSpyHook()
+   if DumperConfig.hookInstalled then return end
+   if not hookmetamethod then return end
+   
+   local ok, mt = pcall(getrawmetatable, game)
+   if not ok or not mt then return end
+   
+   local oldNamecall = mt.__namecall
+   if not oldNamecall then return end
+   
+   pcall(function() setreadonly(mt, false) end)
+   
+   mt.__namecall = newcclosure(function(self, ...)
+       local args = {...}
+       local method = getnamecallmethod()
+       
+       if DumperConfig.spyEnabled and typeof(self) == "Instance" then
+           if method == "FireServer" or method == "InvokeServer" then
+               if self:IsA("RemoteEvent") or self:IsA("RemoteFunction") or self:IsA("UnreliableRemoteEvent") then
+                   local entry = {
+                       Time = os.date("%H:%M:%S"),
+                       Remote = self.Name,
+                       Class = self.ClassName,
+                       Method = method,
+                       Args = formatArgs(args),
+                       Path = getRemotePath(self)
+                   }
+                   table.insert(remoteLogs, 1, entry)
+                   if #remoteLogs > DumperConfig.maxLogs then
+                       table.remove(remoteLogs)
+                   end
+                   
+                   if DumperConfig.logToFile then
+                       local line = string.format("[%s] %s.%s(%s) [%s]\n", entry.Time, entry.Remote, entry.Method, entry.Args, entry.Class)
+                       pcall(function()
+                           local path = "TigerDumper/RemoteSpy_Logs.txt"
+                           local existing = isfile(path) and readfile(path) or ""
+                           writefile(path, line .. existing)
+                       end)
+                   end
+               end
+           end
+       end
+       
+       return oldNamecall(self, ...)
+   end)
+   
+   pcall(function() setreadonly(mt, true) end)
+   DumperConfig.hookInstalled = true
+end
+
+-- ==================== SCRIPT EXPLORER ====================
+local function scanAllScripts()
+   local list = {}
+   for _, obj in ipairs(game:GetDescendants()) do
+       if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
+           table.insert(list, {
+               Name = obj.Name,
+               Class = obj.ClassName,
+               Path = obj:GetFullName()
+           })
+       end
+   end
+   return list
+end
+
+-- ==================== UI CREATION ====================
+local Window = Fluent:CreateWindow({
+   Title = "🐯 Tiger Dumper Pro",
+   SubTitle = "v1.0 Mobile | สำหรับศึกษาเท่านั้น",
+   TabWidth = 130,
+   Size = UDim2.fromOffset(500, 340),
+   Acrylic = false,
+   Theme = "Dark",
+   MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+   Scanner = Window:AddTab({ Title = "📡 Scanner", Icon = "wifi" }),
+   Spy = Window:AddTab({ Title = "🕵️ Spy", Icon = "eye" }),
+   Dumper = Window:AddTab({ Title = "💾 Dumper", Icon = "save" }),
+   Explorer = Window:AddTab({ Title = "📂 Explorer", Icon = "folder-open" })
+}
+
+-- ==================== TAB 1: SCANNER ====================
+Tabs.Scanner:AddParagraph({
+   Title = "📡 Remote Scanner",
+   Content = "สแกนหา RemoteEvent และ RemoteFunction ทั้งหมดในเกม"
+})
+
+Tabs.Scanner:AddButton({
+   Title = "🔍 สแกน Remote ทั้งหมด",
+   Description = "แสดงผล + บันทึกไฟล์ TigerDumper/RemoteList.txt",
+   Callback = function()
+       local remotes = scanAllRemotes()
+       local output = string.format("🔍 พบ Remote ทั้งหมด: %d รายการ\n\n", #remotes)
+       
+       for _, r in ipairs(remotes) do
+           output = output .. string.format("[%s] %s\n└─ Path: %s\n\n", r.Class, r.Name, r.Path)
+       end
+       
+       safeWriteFile("RemoteList.txt", output)
+       
+       Tabs.Scanner:AddParagraph({
+           Title = string.format("ผลการสแกน: %d Remote", #remotes),
+           Content = output:sub(1, 1800) .. (#output > 1800 and "\n... (ตัดเนื้อหา)" or "")
+       })
+   end
+})
+
+-- ==================== TAB 2: SPY ====================
+Tabs.Spy:AddParagraph({
+   Title = "⚠️ คำเตือน",
+   Content = "Remote Spy ใช้ hookmetamethod หากเกมมี Anti-Cheat แรง (Byfron) อาจโดนเตะได้ ใช้ด้วยความระมัดระวัง"
+})
+
+Tabs.Spy:AddToggle("EnableSpy", {
+   Title = "🕵️ เปิด Remote Spy",
+   Description = "ดักจับการเรียก Remote แบบ Real-time",
+   Default = false
+}):OnChanged(function(Value)
+   DumperConfig.spyEnabled = Value
+   if Value and hookmetamethod then
+       installSpyHook()
+   end
+end)
+
+Tabs.Spy:AddToggle("LogFile", {
+   Title = "📝 บันทึกลงไฟล์อัตโนมัติ",
+   Default = true
+}):OnChanged(function(Value)
+   DumperConfig.logToFile = Value
+end)
+
+Tabs.Spy:AddButton({
+   Title = "📋 ดู Logs ล่าสุด (20 รายการ)",
+   Callback = function()
+       local text = ""
+       local count = math.min(20, #remoteLogs)
+       for i = 1, count do
+           local log = remoteLogs[i]
+           text = text .. string.format("[%s] %s.%s(%s)\n", log.Time, log.Remote, log.Method, log.Args)
+       end
+       if text == "" then text = "ยังไม่มีข้อมูล ลองเปิด Spy แล้วเล่นเกมสักพัก..." end
+       
+       Tabs.Spy:AddParagraph({
+           Title = "Recent Logs (" .. count .. ")",
+           Content = text:sub(1, 2000)
+       })
+   end
+})
+
+Tabs.Spy:AddButton({
+   Title = "🗑️ เคลียร์ Logs",
+   Callback = function()
+       remoteLogs = {}
+       Tabs.Spy:AddParagraph({
+           Title = "เคลียร์สำเร็จ",
+           Content = "ล้าง Logs ทั้งหมดแล้ว"
+       })
+   end
+})
+
+-- ==================== TAB 3: DUMPER ====================
+Tabs.Dumper:AddParagraph({
+   Title = "💾 SaveInstance & Decompile",
+   Content = "บันทึกแมพหรือดึงสคริปต์ในเกม (ขึ้นอยู่กับ Executor ที่ใช้)"
+})
+
+Tabs.Dumper:AddButton({
+   Title = "💾 SaveInstance (Dump แมพทั้งหมด)",
+   Description = "บันทึกเกมลงไฟล์ .rbxl",
+   Callback = function()
+       if saveinstance then
+           pcall(function()
+               saveinstance({mode = "optimized", noscripts = false})
+           end)
+           Window:Dialog({
+               Title = "✅ สำเร็จ",
+               Content = "บันทึกแมพเรียบร้อย! ตรวจสอบในโฟลเดอร์ workspace ของ executor",
+               Buttons = {{ Title = "ตกลง", Callback = function() end }}
+           })
+       else
+           Window:Dialog({
+               Title = "❌ ไม่รองรับ",
+               Content = "Executor นี้ไม่มีฟังก์ชัน saveinstance()\nแนะนำ: Delta, Fluxus, Codex",
+               Buttons = {{ Title = "ตกลง", Callback = function() end }}
+           })
+       end
+   end
+})
+
+Tabs.Dumper:AddButton({
+   Title = "📜 Decompile All Scripts",
+   Description = "ดึงสคริปต์ทั้งหมด (ใช้เวลานาน)",
+   Callback = function()
+       if not decompile then
+           Window:Dialog({
+               Title = "❌ ไม่รองรับ",
+               Content = "Executor นี้ไม่มีฟังก์ชัน decompile()",
+               Buttons = {{ Title = "ตกลง", Callback = function() end }}
+           })
+           return
+       end
+       
+       local count = 0
+       local failed = 0
+       for _, obj in ipairs(game:GetDescendants()) do
+           if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+               pcall(function()
+                   local src = decompile(obj)
+                   if src and #src > 10 then
+                       local fname = obj:GetFullName():gsub("[^%w/]", "_") .. ".lua"
+                       safeWriteFile("Scripts/" .. fname, src)
+                       count = count + 1
+                   end
+               end)
+               if not pcall then failed = failed + 1 end
+               task.wait()
+           end
+       end
+       
+       Window:Dialog({
+           Title = "✅ เสร็จสิ้น",
+           Content = string.format("Dump สำเร็จ: %d ไฟล์\nไม่สำเร็จ: %d ไฟล์\nบันทึกที่: TigerDumper/Scripts/", count, failed),
+           Buttons = {{ Title = "ตกลง", Callback = function() end }}
+       })
+   end
+})
+
+Tabs.Dumper:AddButton({
+   Title = "📋 Copy Remote List to Clipboard",
+   Description = "คัดลอกชื่อ Remote ทั้งหมดไป Clipboard",
+   Callback = function()
+       local remotes = scanAllRemotes()
+       local text = ""
+       for _, r in ipairs(remotes) do
+           text = text .. r.Name .. " | " .. r.Class .. "\n"
+       end
+       if setclipboard then
+           setclipboard(text)
+           Window:Dialog({
+               Title = "✅ คัดลอกแล้ว",
+               Content = "คัดลอกรายการ Remote ทั้งหมดไปยัง Clipboard แล้ว",
+               Buttons = {{ Title = "ตกลง", Callback = function() end }}
+           })
+       else
+           safeWriteFile("RemoteClipboard.txt", text)
+       end
+   end
+})
+
+-- ==================== TAB 4: EXPLORER ====================
+Tabs.Explorer:AddParagraph({
+   Title = "📂 Script Explorer",
+   Content = "แสดงรายการสคริปต์ทั้งหมดในเกม"
+})
+
+Tabs.Explorer:AddButton({
+   Title = "📂 สแกน Script ทั้งหมด",
+   Description = "LocalScript + ModuleScript + Script",
+   Callback = function()
+       scriptList = scanAllScripts()
+       local output = string.format("📂 พบสคริปต์ทั้งหมด: %d รายการ\n\n", #scriptList)
+       
+       local localCount, moduleCount, serverCount = 0, 0, 0
+       for _, s in ipairs(scriptList) do
+           if s.Class == "LocalScript" then localCount = localCount + 1
+           elseif s.Class == "ModuleScript" then moduleCount = moduleCount + 1
+           elseif s.Class == "Script" then serverCount = serverCount + 1 end
+           output = output .. string.format("[%s] %s\n", s.Class, s.Path) .. "\n"
+       end
+       
+       safeWriteFile("ScriptList.txt", output)
+       
+       Tabs.Explorer:AddParagraph({
+           Title = string.format("สคริปต์ทั้งหมด: %d (Local: %d | Module: %d | Server: %d)", #scriptList, localCount, moduleCount, serverCount),
+           Content = output:sub(1, 1800) .. (#output > 1800 and "\n... (ตัดเนื้อหา)" or "")
+       })
+   end
+})
+
+Tabs.Explorer:AddButton({
+   Title = "🔍 หา Script ตามชื่อ",
+   Description = "ใช้ชื่อหรือคีย์เวิร์ดค้นหา",
+   Callback = function()
+       -- Simple search via dialog not available in Fluent easily, so we dump all and let user search file
+       Window:Dialog({
+           Title = "💡 คำแนะนำ",
+           Content = "ให้เปิดไฟล์ TigerDumper/ScriptList.txt แล้วใช้ Ctrl+F ค้นหาในโปรแกรมแก้ไขข้อความ",
+           Buttons = {{ Title = "ตกลง", Callback = function() end }}
+       })
+   end
+})
+
+pcall(function() Window:SelectTab(1) end)
