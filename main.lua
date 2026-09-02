@@ -19,7 +19,6 @@ end
 
 local safeRoot = getMountRoot()
 
--- ล้างอินสแตนซ์เก่า
 pcall(function()
     if safeRoot:FindFirstChild("TigerRootGui") then safeRoot.TigerRootGui:Destroy() end
     if safeRoot:FindFirstChild("TigerPathPopup") then safeRoot.TigerPathPopup:Destroy() end
@@ -175,7 +174,7 @@ local function scanTargets()
     return dump, count
 end
 
--- 3. Remotes Engine (ดึงนับชิ้นส่วนทั้งหมด)
+-- 3. Remotes Engine
 local function scanRemotes()
     local dump = "=== 3. ALL REMOTES LIST ===\nPlace ID: " .. game.PlaceId .. "\nTime: " .. os.date("%X") .. "\n\n"
     local count = 0
@@ -533,4 +532,5 @@ end)
 -- ปุ่ม 5
 buildButton("5. 📦 All-In-One Master Dump -> ส่ง Discord ทันที", "รวบทั้ง ผังแมพ + พิกัดฟาร์ม + Stats + Remotes ส่งเป็นไฟล์เดียว", Color3.fromRGB(155, 45, 45), function()
     notify("⏳ กำลังรวบรวมไฟล์ Master Dump...")
-    task.spawn(function(
+    task.spawn(function()
+        local sep = "\n" .. string.rep("=",
