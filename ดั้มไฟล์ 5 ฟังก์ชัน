@@ -1,0 +1,108 @@
+-- [[ 🐯 TIGER DUMPER PRO: LITE EDITION (STABLE) 🐾 ]]
+local p = game:GetService("Players").LocalPlayer
+local pg = p:FindFirstChildOfClass("PlayerGui") or game:GetService("CoreGui")
+pcall(function() pg.TigerRootGui:Destroy() end)
+
+local http = (syn and syn.request) or http_request or (fluxus and fluxus.request) or request
+local hook = ""
+
+local function post(name, data)
+    if hook == "" or not http then return end
+    local b = "----TB" .. tick()
+    local body = "--"..b.."\r\nContent-Disposition: form-data; name=\"file\"; filename=\""..name.."\"\r\nContent-Type: text/plain\r\n\r\n"..data.."\r\n--"..b.."--"
+    pcall(function()
+        http({Url = hook, Method = "POST", Headers = {["Content-Type"] = "multipart/form-data; boundary="..b}, Body = body})
+    end)
+end
+
+local function f1()
+    local s = "=== WORKSPACE TREE ===\n"
+    for _, v in ipairs(workspace:GetChildren()) do
+        if v:IsA("Folder") or v:IsA("Model") then
+            s = s .. string.format("[%s] %s (Children: %d)\n", v.ClassName, v.Name, #v:GetChildren())
+        end
+    end
+    return s
+end
+
+local function f2()
+    local s, count = "=== TARGETS DUMP ===\n", 0
+    local keys = {"egg","drop","plot","spawn","crate","chest","shop","chicken","duck","block","zone"}
+    for _, v in ipairs(workspace:GetChildren()) do
+        local n = v.Name:lower()
+        for _, k in ipairs(keys) do
+            if n:find(k, 1, true) then
+                local pos = v:IsA("BasePart") and tostring(v.Position) or (v:IsA("Model") and v.PrimaryPart and tostring(v.PrimaryPart.Position)) or "N/A"
+                s = s .. string.format("[%s] %s | Pos: %s\nPath: %s\n\n", v.ClassName, v.Name, pos, v:GetFullName())
+                count = count + 1; break
+            end
+        end
+        if count >= 60 then break end
+    end
+    return s
+end
+
+local function f3()
+    local s = "=== REMOTES LIST ===\n"
+    for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+            s = s .. string.format("[%s] %s\nPath: %s\n\n", v.ClassName, v.Name, v:GetFullName())
+        end
+    end
+    return s
+end
+
+local function f4()
+    local s = "=== PLAYER STATS ===\n"
+    for _, n in ipairs({"leaderstats","Data","Stats","values"}) do
+        local d = p:FindFirstChild(n)
+        if d then
+            s = s .. "Folder: " .. n .. "\n"
+            for _, v in ipairs(d:GetChildren()) do
+                if v:IsA("ValueBase") then s = s .. string.format("  %s = %s\n", v.Name, tostring(v.Value)) end
+            end
+        end
+    end
+    return s
+end
+
+local sg = Instance.new("ScreenGui", pg)
+sg.Name = "TigerRootGui"; sg.ResetOnSpawn = false
+
+local f = Instance.new("Frame", sg)
+f.Size = UDim2.fromOffset(280, 260); f.Position = UDim2.new(0.5, -140, 0.4, -130)
+f.BackgroundColor3 = Color3.fromRGB(18, 20, 26); f.Active = true; f.Draggable = true
+Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+local st = Instance.new("UIStroke", f); st.Color = Color3.fromRGB(0, 255, 140); st.Thickness = 1.5
+
+local tb = Instance.new("TextBox", f)
+tb.Size = UDim2.new(1, -16, 0, 32); tb.Position = UDim2.fromOffset(8, 8)
+tb.PlaceholderText = "🔗 วาง Webhook URL ที่นี่..."; tb.BackgroundColor3 = Color3.fromRGB(26, 30, 40)
+tb.TextColor3 = Color3.fromRGB(0, 255, 140); tb.TextSize = 10; tb.ClearTextOnFocus = false
+Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+tb.FocusLost:Connect(function() hook = tb.Text end)
+
+local btns = {
+    {"1. Dump Workspace", function() post("Workspace.txt", f1()) end},
+    {"2. Dump Targets", function() post("Targets.txt", f2()) end},
+    {"3. Dump Remotes", function() post("Remotes.txt", f3()) end},
+    {"4. Dump Stats", function() post("Stats.txt", f4()) end},
+    {"5. MASTER ALL DUMP", function() post("Master.txt", f4().."\n"..f1().."\n"..f3().."\n"..f2()) end}
+}
+
+for i, b in ipairs(btns) do
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(1, -16, 0, 32); btn.Position = UDim2.fromOffset(8, 46 + ((i-1) * 36))
+    btn.Text = b[1]; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.BackgroundColor3 = (i == 5) and Color3.fromRGB(150, 40, 40) or Color3.fromRGB(0, 130, 75)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(b[2])
+end
+
+local tgl = Instance.new("TextButton", sg)
+tgl.Size = UDim2.fromOffset(44, 44); tgl.Position = UDim2.new(0, 15, 0.45, 0)
+tgl.Text = "🐯"; tgl.TextSize = 22; tgl.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+Instance.new("UICorner", tgl).CornerRadius = UDim.new(1, 0)
+local tst = Instance.new("UIStroke", tgl); tst.Color = Color3.fromRGB(0, 255, 140)
+tgl.MouseButton1Click:Connect(function() f.Visible = not f.Visible end)
