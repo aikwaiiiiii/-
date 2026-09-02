@@ -1,0 +1,372 @@
+-- [[ 🐯 TIGER DUMPER PRO V3.2.2 (STABLE & OPTIMIZED) 🐾 ]]
+
+local fluentSuccess, Fluent = pcall(function()
+    return loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+end)
+
+if not fluentSuccess or not Fluent then
+    warn("🐯 Tiger Dumper: ไม่สามารถโหลด Fluent UI ได้")
+    return
+end
+
+local rs = game:GetService("ReplicatedStorage")
+local httpService = game:GetService("HttpService")
+local uis = game:GetService("UserInputService")
+local players = game:GetService("Players")
+local lp = players.LocalPlayer
+local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+
+-- ==================== CAPABILITIES CHECK ====================
+local Capabilities = {
+    writefile = typeof(writefile) == "function",
+    makefolder = typeof(makefolder) == "function",
+    isfolder = typeof(isfolder) == "function",
+    saveinstance = typeof(saveinstance) == "function",
+    decompile = typeof(decompile) == "function",
+    hookmetamethod = typeof(hookmetamethod) == "function",
+    getnamecallmethod = typeof(getnamecallmethod) == "function",
+    getrawmetatable = typeof(getrawmetatable) == "function",
+    httpRequest = typeof(httpRequest) == "function"
+}
+
+local Config = {
+    webhookUrl = "",
+    spyEnabled = false,
+    maxLogs = 150,
+    hookInstalled = false
+}
+
+local State = {
+    remoteLogs = {},
+    lastSendTime = {}
+}
+
+-- ==================== UTILITIES ====================
+local function getInstancePath(obj)
+    if not obj then return "nil" end
+    local success, path = pcall(function()
+        return obj:GetFullName()
+    end)
+    return success and path or tostring(obj)
+end
+
+local function formatValue(v)
+    local t = typeof(v)
+    if t == "Instance" then
+        return string.format("Instance(%s)", v.Name)
+    elseif t == "table" then
+        local count = 0
+        for _ in pairs(v) do count = count + 1 end
+        return string.format("table[%d]", count)
+    elseif t == "string" then
+        return '"' .. v:gsub("\n", "\\n"):sub(1, 30) .. '"'
+    elseif t == "number" then
+        return string.format("%.2f", v)
+    else
+        return tostring(v)
+    end
+end
+
+local function formatArgs(args)
+    local parts = {}
+    for i, v in ipairs(args) do
+        parts[i] = formatValue(v)
+    end
+    return table.concat(parts, ", ")
+end
+
+local function safeWriteFile(name, content)
+    if not Capabilities.writefile then return false end
+    return pcall(function()
+        if Capabilities.makefolder and not isfolder("TigerDumper") then
+            makefolder("TigerDumper")
+        end
+        writefile("TigerDumper/" .. name, content)
+    end)
+end
+
+-- ==================== DISCORD SENDER ====================
+local function sendToDiscord(fileName, fileContent, titleMessage)
+    if not Config.webhookUrl or Config.webhookUrl == "" then 
+        return false, "กรุณาระบุ Webhook URL ก่อน" 
+    end
+    if not Capabilities.httpRequest then 
+        return false, "Executor ไม่รองรับ HTTP Request" 
+    end
+
+    -- Chunking: ตัดไฟล์ละ 4MB เพื่อเซฟ Bandwidth และไม่ชน Discord 8MB Limit
+    local maxChunk = 4 * 1024 * 1024
+    if #fileContent > maxChunk then
+        local totalParts = math.ceil(#fileContent / maxChunk)
+        for idx = 1, totalParts do
+            local start = (idx - 1) * maxChunk + 1
+            local finish = math.min(idx * maxChunk, #fileContent)
+            local part = fileContent:sub(start, finish)
+            local pName = fileName:gsub("%.%w+$", "") .. "_p" .. idx .. ".txt"
+            sendToDiscord(pName, part, string.format("%s [%d/%d]", titleMessage or "Tiger Dumper", idx, totalParts))
+            task.wait(1)
+        end
+        return true
+    end
+
+    local boundary = "----TigerBoundary" .. httpService:GenerateGUID(false):gsub("-", "")
+    local body = "--" .. boundary .. "\r\n"
+        .. 'Content-Disposition: form-data; name="content"\r\n\r\n'
+        .. (titleMessage or "📦 Tiger Dumper Export") .. "\r\n"
+        .. "--" .. boundary .. "\r\n"
+        .. 'Content-Disposition: form-data; name="file"; filename="' .. fileName .. '"\r\n'
+        .. "Content-Type: text/plain\r\n\r\n"
+        .. fileContent .. "\r\n"
+        .. "--" .. boundary .. "--\r\n"
+
+    local ok, res = pcall(function()
+        return httpRequest({
+            Url = Config.webhookUrl,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "multipart/form-data; boundary=" .. boundary },
+            Body = body
+        })
+    end)
+
+    if ok and res and (res.StatusCode == 200 or res.StatusCode == 204) then
+        return true
+    else
+        return false, res and tostring(res.StatusCode) or "ส่งไม่สำเร็จ"
+    end
+end
+
+-- ==================== SAFE SCANNER ====================
+-- ระบุ Container ปลอดภัย แทนการยิง game:GetDescendants() มั่ว
+local SAFE_CONTAINERS = {
+    workspace,
+    rs,
+    game:GetService("ReplicatedFirst"),
+    lp:WaitForChild("PlayerScripts", 2),
+    lp:WaitForChild("PlayerGui", 2)
+}
+
+local function getSafeTargets()
+    local list = {}
+    for _, service in ipairs(SAFE_CONTAINERS) do
+        if service then table.insert(list, service) end
+    end
+    return list
+end
+
+local function scanRemotes(limit)
+    limit = limit or 300
+    local found = {}
+    for _, container in ipairs(getSafeTargets()) do
+        for _, obj in ipairs(container:GetDescendants()) do
+            if #found >= limit then return found end
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or (pcall(function() return obj:IsA("UnreliableRemoteEvent") end) and obj:IsA("UnreliableRemoteEvent")) then
+                table.insert(found, { Name = obj.Name, Class = obj.ClassName, Path = getInstancePath(obj) })
+            end
+        end
+    end
+    return found
+end
+
+local function scanScripts(limit)
+    limit = limit or 300
+    local found = {}
+    for _, container in ipairs(getSafeTargets()) do
+        for _, obj in ipairs(container:GetDescendants()) do
+            if #found >= limit then return found end
+            if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+                table.insert(found, { Name = obj.Name, Class = obj.ClassName, Path = getInstancePath(obj) })
+            end
+        end
+    end
+    return found
+end
+
+-- ==================== SPY HOOK ====================
+local function installSpyHook()
+    if Config.hookInstalled or not Capabilities.hookmetamethod then return end
+    local ok, mt = pcall(getrawmetatable, game)
+    if not ok or not mt then return end
+    
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if Config.spyEnabled and typeof(self) == "Instance" then
+            if method == "FireServer" or method == "InvokeServer" then
+                local args = {...}
+                task.spawn(function()
+                    table.insert(State.remoteLogs, 1, {
+                        Time = os.date("%H:%M:%S"),
+                        Remote = self.Name,
+                        Method = method,
+                        Args = formatArgs(args),
+                        Path = getInstancePath(self)
+                    })
+                    if #State.remoteLogs > Config.maxLogs then 
+                        table.remove(State.remoteLogs) 
+                    end
+                end)
+            end
+        end
+        return oldNamecall(self, ...)
+    end))
+    Config.hookInstalled = true
+end
+
+-- ==================== UI SETUP ====================
+local Window = Fluent:CreateWindow({
+    Title = "🐯 Tiger Dumper Pro",
+    SubTitle = "v3.2.2 Refined",
+    TabWidth = 130,
+    Size = UDim2.fromOffset(500, 340),
+    Acrylic = false,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+    Scanner = Window:AddTab({ Title = "📡 Scanner", Icon = "wifi" }),
+    Spy = Window:AddTab({ Title = "🕵️ Spy", Icon = "eye" }),
+    Dumper = Window:AddTab({ Title = "💾 Dumper", Icon = "save" }),
+    Status = Window:AddTab({ Title = "⚙️ Status", Icon = "settings" })
+}
+
+-- TAB 1: SCANNER
+Tabs.Scanner:AddButton({
+    Title = "🔍 สแกน Remote และบันทึก",
+    Callback = function()
+        local remotes = scanRemotes(300)
+        local output = string.format("🔍 Remote List (Total: %d)\n\n", #remotes)
+        for _, r in ipairs(remotes) do
+            output = output .. string.format("[%s] %s\n└─ %s\n", r.Class, r.Name, r.Path)
+        end
+        safeWriteFile("RemoteList.txt", output)
+        Tabs.Scanner:AddParagraph({
+            Title = "สแกนสำเร็จ",
+            Content = string.format("พบ %d รายการ (บันทึกลง TigerDumper/RemoteList.txt แล้ว)", #remotes)
+        })
+    end
+})
+
+-- TAB 2: SPY
+Tabs.Spy:AddToggle("EnableSpy", { Title = "🕵️ เปิด Remote Spy", Default = false }):OnChanged(function(v)
+    Config.spyEnabled = v
+    if v then installSpyHook() end
+end)
+
+Tabs.Spy:AddButton({
+    Title = "🚀 ส่ง Remote Logs เข้า Discord",
+    Callback = function()
+        local text = "=== SPY LOGS ===\n\n"
+        for _, log in ipairs(State.remoteLogs) do
+            text = text .. string.format("[%s] %s:%s(%s)\nPath: %s\n\n", log.Time, log.Remote, log.Method, log.Args, log.Path)
+        end
+        local ok, err = sendToDiscord("SpyLogs.txt", text, "🕵️ Remote Logs")
+        Window:Dialog({
+            Title = ok and "✅ สำเร็จ" or "❌ ล้มเหลว",
+            Content = ok and "ส่ง Logs เข้า Discord เรียบร้อย" or tostring(err),
+            Buttons = {{ Title = "ตกลง" }}
+        })
+    end
+})
+
+-- TAB 3: DUMPER
+Tabs.Dumper:AddInput("DiscordWebhook", {
+    Title = "🔗 Webhook URL",
+    Default = "",
+    Placeholder = "https://discord.com/api/webhooks/...",
+    Callback = function(v) Config.webhookUrl = v end
+})
+
+Tabs.Dumper:AddButton({
+    Title = "⚡ Turbo Decompile (Script ที่มองเห็น)",
+    Description = "แกะโค้ด Local/ModuleScript แล้วส่ง Discord ทันที",
+    Callback = function()
+        if not Capabilities.decompile then
+            Window:Dialog({ Title = "แจ้งเตือน", Content = "Executor นี้ไม่รองรับ decompile()", Buttons = {{ Title = "ตกลง" }} })
+            return
+        end
+
+        if State.lastSendTime["Turbo"] and tick() - State.lastSendTime["Turbo"] < 10 then return end
+        State.lastSendTime["Turbo"] = tick()
+
+        task.spawn(function()
+            local scripts = scanScripts(150)
+            local dump = "-- TIGER DUMP ENGINE\n\n"
+            local count = 0
+
+            for _, target in ipairs(scripts) do
+                local inst = game:FindFirstChild(target.Path, true) or rs:FindFirstChild(target.Name, true)
+                if inst and (inst:IsA("LocalScript") or inst:IsA("ModuleScript")) then
+                    local ok, src = pcall(decompile, inst)
+                    if ok and typeof(src) == "string" and #src > 0 then
+                        dump = dump .. "\n\n-- [[" .. target.Path .. "]]\n" .. src
+                        count = count + 1
+                    end
+                end
+                task.wait(0.02) -- Yield กัน UI ค้าง
+            end
+
+            local ok, err = sendToDiscord("DumpedScripts.lua", dump, string.format("⚡ แกะสำเร็จ %d สคริปต์", count))
+            Window:Dialog({
+                Title = ok and "✅ สำเร็จ" or "❌ ล้มเหลว",
+                Content = ok and string.format("ส่งโค้ด %d ไฟล์เรียบร้อย", count) or tostring(err),
+                Buttons = {{ Title = "ตกลง" }}
+            })
+        end)
+    end
+})
+
+Tabs.Dumper:AddButton({
+    Title = "💾 SaveInstance (.rbxl)",
+    Callback = function()
+        if Capabilities.saveinstance then
+            task.spawn(function()
+                pcall(saveinstance, { mode = "optimized", noscripts = false })
+            end)
+        else
+            Window:Dialog({ Title = "แจ้งเตือน", Content = "ไม่รองรับ saveinstance()", Buttons = {{ Title = "ตกลง" }} })
+        end
+    end
+})
+
+-- TAB 4: STATUS
+local status = ""
+for k, v in pairs(Capabilities) do
+    status = status .. string.format("[%s] %s\n", v and "✅" or "❌", k)
+end
+Tabs.Status:AddParagraph({ Title = "Engine Capabilities", Content = status })
+
+Window:SelectTab(1)
+
+-- ==================== MOBILE FLOATING BUTTON ====================
+pcall(function()
+    local coreGui = game:GetService("CoreGui")
+    if coreGui:FindFirstChild("TigerToggleUI") then
+        coreGui.TigerToggleUI:Destroy()
+    end
+
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "TigerToggleUI"
+    sg.ResetOnSpawn = false
+    sg.Parent = coreGui
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromOffset(45, 45)
+    btn.Position = UDim2.new(0, 15, 0.5, -22)
+    btn.Text = "🐯"
+    btn.TextSize = 20
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Active = true
+    btn.Draggable = true
+    btn.Parent = sg
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        -- Fluent ซ่อนผ่าน Input Virtual Key จะไม่ทำให้ Memory hierarchy พัง
+        uis.InputBegan:Fire({ KeyCode = Enum.KeyCode.LeftControl, UserInputType = Enum.UserInputType.Keyboard }, false)
+    end)
+end)
